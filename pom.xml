@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Indica la versión de XML y la codificación de caracteres para que reconozca tildes y eñes -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <!-- Etiqueta de inicio del proyecto Maven y sus configuraciones de validación -->
+
+  <modelVersion>4.0.0</modelVersion>
+  <!-- Versión del modelo de Maven que se está utilizando -->
+
+  <groupId>studyboard</groupId>
+  <!-- Identificador del grupo o creador del proyecto (el nombre de nuestra organización/paquete) -->
+  <artifactId>studyboard</artifactId>
+  <!-- Nombre único del proyecto o aplicación -->
+  <version>1.0</version>
+  <!-- Versión actual de tu aplicación -->
+  <packaging>jar</packaging>
+  <!-- Indica que el resultado final al compilar será un archivo empaquetado .jar -->
+
+  <properties>
+    <!-- Seccion para definir propiedades y configuraciones generales del compilador -->
+    <maven.compiler.release>21</maven.compiler.release>
+    <!-- Le indica a Java que compile el código compatible con la versión 21 -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Fuerza el uso de codificación UTF-8 para evitar errores con caracteres especiales -->
+  </properties>
+
+  <dependencies>
+    <!-- Sección donde declaramos las librerías externas que necesitamos descargar -->
+    <dependency>
+      <!-- Definición de una librería específica -->
+      <groupId>com.googlecode.lanterna</groupId>
+      <!-- El creador o grupo de la librería Lanterna -->
+      <artifactId>lanterna</artifactId>
+      <!-- El nombre de la librería que creará la interfaz de texto -->
+      <version>3.1.3</version>
+      <!-- La versión exacta de Lanterna que vamos a descargar y usar -->
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- Sección de construcción: indica cómo se debe empaquetar y compilar el programa -->
+    <finalName>studyboard</finalName>
+    <!-- Nombre que tendrá el archivo ejecutable final generado -->
+    <plugins>
+      <!-- Plugins o herramientas adicionales para el proceso de construcción -->
+      <plugin>
+        <!-- Plugin de Maven encargado de empaquetar -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <!-- Este plugin en concreto junta nuestro código y la librería Lanterna en UNO SOLO -->
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <!-- Se ejecuta en la fase de empaquetado del proyecto -->
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>studyboard.Main</mainClass>
+                  <!-- MUY IMPORTANTE: Le indica a Java cuál es la clase principal que tiene que arrancar al ejecutar el programa -->
+                </transformer>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+<!-- Fin del archivo de configuración del proyecto -->
