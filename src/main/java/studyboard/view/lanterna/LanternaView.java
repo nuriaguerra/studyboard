@@ -21,11 +21,18 @@ import studyboard.model.Status;
 import studyboard.model.Task;
 import studyboard.view.View;
 import studyboard.view.ViewListener;
+import com.googlecode.lanterna.gui2.dialogs.MessageDialogButton;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
+import studyboard.model.Priority;
+import studyboard.model.TaskData;
 
 /** Text mode implementation of View using Lanterna. All the drawing code lives here. */
 public class LanternaView implements View {
     private static final DateTimeFormatter SHORT_DATE = DateTimeFormatter.ofPattern("dd.MM");
     private static final DateTimeFormatter LONG_DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    // STRICT + "uuuu" = 31.02.2026 is rejected instead of silently changed to 28.02.2026.
+    private static final DateTimeFormatter DATE_INPUT = DateTimeFormatter.ofPattern("dd.MM.uuuu").withResolverStyle(ResolverStyle.STRICT);
 
     private final boolean useSwing;                // true = separate emulator window
     private final BasicWindow window = new BasicWindow("StudyBoard - Board");
@@ -57,6 +64,9 @@ public class LanternaView implements View {
                     case 'q' -> { deliverEvent.set(false); window.close(); }
                     case 'm' -> { deliverEvent.set(false); moveSelectedTask(+1); }
                     case 'b' -> { deliverEvent.set(false); moveSelectedTask(-1); }
+                    case 'n' -> { deliverEvent.set(false); showTaskForm(null); }
+                    case 'e' -> { deliverEvent.set(false); editSelectedTask(); }
+                    case 'd' -> { deliverEvent.set(false); deleteSelectedTask(); }
                     default -> { } // other letters: do nothing for now
                 }
             }
@@ -105,7 +115,7 @@ public class LanternaView implements View {
         board.setLayoutData(LinearLayout.createLayoutData(
                 LinearLayout.Alignment.Fill, LinearLayout.GrowPolicy.CanGrow));
         root.addComponent(board);
-        root.addComponent(new Label("Arrows: move | Enter: details | M: move forward | B: move back | Q: quit"));
+        root.addComponent(new Label("Arrows: move | Enter: details | N: new | E: edit | D: delete | M/B: move | Q: quit"));
         statusLine = new Label(" ");
         root.addComponent(statusLine);
         window.setComponent(root);
@@ -211,6 +221,151 @@ public class LanternaView implements View {
                 }
             }
             pendingSelectId = null;
+        }
+    }
+
+        // ------------------------------------------------------------ create / edit / delete
+
+    private void editSelectedTask() {
+        Task task = selectedTask();
+        if (task == null) {
+            showMessage("Select a task first (arrow keys).");
+            return;
+        }
+        showTaskForm(task);
+    }
+
+    /** Asks for confirmation (error prevention) and then tells the Controller to delete. */
+    private void deleteSelectedTask() {
+        Task task = selectedTask();
+        if (task == null) {
+            showMessage("Select a task first (arrow keys).");
+            return;
+        }
+        // "No" is listed first so the safe answer is the first button.
+        MessageDialogButton answer = MessageDialog.showMessageDialog(gui, "Delete task",
+                "Delete \"" + task.getTitle() + "\"?", MessageDialogButton.No, MessageDialogButton.Yes);
+        if (answer == MessageDialogButton.Yes) {
+            listener.onDeleteTask(task.getId());
+        } else {
+            showMessage("Delete cancelled.");
+        }
+    }
+
+    /** Form window. existing == null means "new task", otherwise "edit this task". */
+    private void showTaskForm(Task existing) {
+        if (subjectNames.isEmpty()) {
+            showMessage("There are no subjects yet.");
+            return;
+        }
+        boolean editing = existing != null;
+        BasicWindow form = new BasicWindow(editing ? "Edit task" : "New task");
+        form.setHints(List.of(Window.Hint.CENTERED));
+
+        // Same order in both lists (the map keeps insertion order).
+        List<Integer> subjectIds = new ArrayList<>(subjectNames.keySet());
+        List<String> subjectLabels = new ArrayList<>(subjectNames.values());
+        List<String> priorityLabels = new ArrayList<>();
+        for (Priority p : Priority.values()) {
+            priorityLabels.add(p.getLabel());
+        }
+
+        // Input fields, pre-filled when editing. Enter moves to the next field.
+        TextBox title = new TextBox(new TerminalSize(40, 1), editing ? existing.getTitle() : "");
+        ComboBox<String> subject = new ComboBox<String>(subjectLabels);
+        ComboBox<String> priority = new ComboBox<String>(priorityLabels);
+        LocalDate defaultDate = editing ? existing.getDeadline() : today.plusDays(7);
+        TextBox date = new TextBox(new TerminalSize(14, 1), defaultDate.format(LONG_DATE));
+        TextBox hours = new TextBox(new TerminalSize(8, 1),
+                editing ? String.valueOf(existing.getEstimatedHours()) : "1.0");
+        TextBox notes = new TextBox(new TerminalSize(40, 1), editing ? existing.getNotes() : "");
+
+        if (editing) {
+            int subjectIndex = subjectIds.indexOf(existing.getSubjectId());
+            if (subjectIndex >= 0) {
+                subject.setSelectedIndex(subjectIndex);
+            }
+            priority.setSelectedIndex(existing.getPriority().ordinal());
+        } else {
+            priority.setSelectedIndex(Priority.MEDIUM.ordinal());
+        }
+
+        Button save = new Button("Save", () -> {
+            try {
+                // Building TaskData validates everything; errors come as IllegalArgumentException.
+                TaskData data = new TaskData(title.getText(), notes.getText(),
+                        subjectIds.get(subject.getSelectedIndex()),
+                        Priority.values()[priority.getSelectedIndex()],
+                        parseDate(date.getText()), parseHours(hours.getText()));
+                if (editing) {
+                    pendingSelectId = existing.getId(); // keep the cursor on the edited task
+                    listener.onEditTask(existing.getId(), data);
+                } else {
+                    listener.onAddTask(data);
+                }
+                form.close();
+            } catch (IllegalArgumentException e) {
+                // The form stays open so the user can fix the problem.
+                MessageDialog.showMessageDialog(gui, "Please check the form", e.getMessage());
+            }
+        });
+        Button cancel = new Button("Cancel", form::close);
+
+        Panel buttons = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        buttons.addComponent(save);
+        buttons.addComponent(cancel);
+        buttons.setLayoutData(GridLayout.createLayoutData(
+                GridLayout.Alignment.END, GridLayout.Alignment.CENTER, false, false, 2, 1));
+
+        Panel panel = new Panel(new GridLayout(2));
+        panel.addComponent(new Label("Title:"));
+        panel.addComponent(title);
+        panel.addComponent(new Label("Subject:"));
+        panel.addComponent(subject);
+        panel.addComponent(new Label("Priority:"));
+        panel.addComponent(priority);
+        panel.addComponent(new Label("Deadline (DD.MM.YYYY):"));
+        panel.addComponent(date);
+        panel.addComponent(new Label("Estimate (hours):"));
+        panel.addComponent(hours);
+        panel.addComponent(new Label("Notes (optional):"));
+        panel.addComponent(notes);
+        panel.addComponent(new Label("Tab: next field | Esc: cancel"));
+        panel.addComponent(new EmptySpace());
+        panel.addComponent(buttons);
+        form.setComponent(panel);
+
+        // Esc cancels, like in every other screen. onUnhandledInput only receives keys
+        // that no component used, so Esc still closes an open drop-down list normally.
+        form.addWindowListener(new WindowListenerAdapter() {
+            @Override
+            public void onUnhandledInput(Window basePane, KeyStroke keyStroke, AtomicBoolean hasBeenHandled) {
+                if (keyStroke.getKeyType() == KeyType.Escape) {
+                    form.close();
+                    hasBeenHandled.set(true);
+                }
+            }
+        });
+
+        gui.addWindowAndWait(form); // blocks until the form closes
+    }
+
+    /** Text to date, with a message that says exactly what is wrong. */
+    private LocalDate parseDate(String text) {
+        try {
+            return LocalDate.parse(text.trim(), DATE_INPUT);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("The deadline must be a real date written as DD.MM.YYYY, for example "
+                    + today.plusDays(7).format(LONG_DATE) + ".");
+        }
+    }
+
+    /** Text to number of hours. Accepts "2.5" and "2,5". */
+    private double parseHours(String text) {
+        try {
+            return Double.parseDouble(text.trim().replace(',', '.'));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("The estimate must be a number of hours, for example 2.5.");
         }
     }
 }

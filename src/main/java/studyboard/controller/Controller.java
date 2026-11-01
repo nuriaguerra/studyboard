@@ -9,6 +9,7 @@ import studyboard.model.Task;
 import studyboard.model.TaskRepository;
 import studyboard.view.View;
 import studyboard.view.ViewListener;
+import studyboard.model.TaskData;
 
 /** Connects Model and View. Contains NO Lanterna code (it only knows the View interface). */
 public class Controller implements ViewListener {
@@ -41,6 +42,31 @@ public class Controller implements ViewListener {
             task.setStatus(newStatus);
             refreshBoard();
             view.showMessage("Moved \"" + task.getTitle() + "\" to " + newStatus.getLabel() + ".");
+        });
+    }
+
+        @Override
+    public void onAddTask(TaskData data) {
+        Task task = repository.addTask(data);
+        refreshBoard();
+        view.showMessage("Added \"" + task.getTitle() + "\" to To do.");
+    }
+
+    @Override
+    public void onEditTask(int taskId, TaskData data) {
+        repository.findTask(taskId).ifPresent(task -> {
+            repository.updateTask(task, data);
+            refreshBoard();
+            view.showMessage("Saved changes to \"" + task.getTitle() + "\".");
+        });
+    }
+
+    @Override
+    public void onDeleteTask(int taskId) {
+        repository.findTask(taskId).ifPresent(task -> {
+            repository.deleteTask(taskId);
+            refreshBoard();
+            view.showMessage("Deleted \"" + task.getTitle() + "\".");
         });
     }
 }

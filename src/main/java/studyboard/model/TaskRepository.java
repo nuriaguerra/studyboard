@@ -3,7 +3,7 @@ package studyboard.model;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,10 +44,33 @@ public class TaskRepository {
 
     /** Map subjectId -> subject name, handy for displaying tasks. */
     public Map<Integer, String> getSubjectNames() {
-        Map<Integer, String> names = new HashMap<>();
+        Map<Integer, String> names = new LinkedHashMap<>();
         for (Subject s : subjects) {
             names.put(s.getId(), s.getName());
         }
         return names;
+    }
+
+        /** Creates a task from form data (starts in "To do"). */
+    public Task addTask(TaskData data) {
+        Task task = addTask(data.title(), data.subjectId(), data.priority(),
+                data.deadline(), data.estimatedHours());
+        task.setNotes(data.notes());
+        return task;
+    }
+
+    /** Overwrites the editable fields of an existing task. */
+    public void updateTask(Task task, TaskData data) {
+        task.setTitle(data.title());
+        task.setNotes(data.notes());
+        task.setSubjectId(data.subjectId());
+        task.setPriority(data.priority());
+        task.setDeadline(data.deadline());
+        task.setEstimatedHours(data.estimatedHours());
+    }
+
+    /** Removes a task. Returns false if there was no task with that id. */
+    public boolean deleteTask(int id) {
+        return tasks.removeIf(t -> t.getId() == id);
     }
 }
