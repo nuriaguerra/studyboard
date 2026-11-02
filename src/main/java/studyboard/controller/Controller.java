@@ -1,32 +1,81 @@
 package studyboard.controller;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import studyboard.model.FileStorage;
+import studyboard.model.SampleData;
 import studyboard.model.Status;
 import studyboard.model.Task;
+import studyboard.model.TaskData;
 import studyboard.model.TaskRepository;
 import studyboard.view.View;
 import studyboard.view.ViewListener;
-import studyboard.model.TaskData;
 
 /** Connects Model and View. Contains NO Lanterna code (it only knows the View interface). */
 public class Controller implements ViewListener {
     private final TaskRepository repository;
     private final View view;
+    private final FileStorage storage;
 
-    public Controller(TaskRepository repository, View view) {
+    public Controller(TaskRepository repository, View view, FileStorage storage) {
         this.repository = repository;
         this.view = view;
+        this.storage = storage;
         this.view.setListener(this); // "tell me when the user does something"
     }
 
-    /** Shows the first screen and hands control to the View until the user quits. */
+    /** Loads the data, shows the first screen and hands control to the View until the user quits. */
     public void start() {
+        String startupMessage = loadData();
         refreshBoard();
+        if (startupMessage != null) {
+            view.showMessage(startupMessage);
+        }
         view.run();
     }
+
+    // ------------------------------------------------------------------ loading
+
+    /** Returns a message for the user, or null if everything was normal. */
+    private String loadData() {
+        // First run: no file yet -> start with example data.
+        if (!storage.exists()) {
+            String warning = loadSampleDataAndSave();
+            return warning != null ? warning
+                    : "Welcome to StudyBoard! Example data loaded. Your changes are saved automatically.";
+        }
+        try {
+            storage.load(repository);
+            return null;
+        } catch (IOException e) {
+            // The file is unreadable or damaged: keep it as a backup and start again.
+            repository.clear(); // the load may have filled the repository halfway
+            try {
+                String backupName = storage.backupBrokenFile().getFileName().toString();
+                String warning = loadSampleDataAndSave();
+                return warning != null ? warning
+                        : "The data file was damaged. It was kept as " + backupName + ". Example data loaded.";
+            } catch (IOException backupError) {
+                return "WARNING: the data file is damaged and cannot be backed up: " + backupError.getMessage();
+            }
+        }
+    }
+
+    /** Loads the example data and saves it. Returns a warning text, or null if all went well. */
+    private String loadSampleDataAndSave() {
+        SampleData.load(repository);
+        try {
+            storage.save(repository);
+            return null;
+        } catch (IOException e) {
+            return "WARNING: cannot save to " + storage.getFile() + " (" + e.getMessage() + ")";
+        }
+    }
+
+    // ------------------------------------------------------------------ board
 
     /** Sorts tasks (earliest deadline first, then highest priority) and sends them to the View. */
     private void refreshBoard() {
@@ -36,28 +85,41 @@ public class Controller implements ViewListener {
         view.showBoard(sorted, repository.getSubjectNames(), LocalDate.now());
     }
 
+    /**
+     * Every change of the data ends here: redraw, save, and tell the user the result.
+     * If saving fails the user sees a warning instead of the success message.
+     */
+    private void saveAndRefresh(String successMessage) {
+        refreshBoard();
+        try {
+            storage.save(repository);
+            view.showMessage(successMessage);
+        } catch (IOException e) {
+            view.showMessage("WARNING: your change could not be saved (" + e.getMessage() + ").");
+        }
+    }
+
+    // ------------------------------------------------------------------ user actions
+
     @Override
     public void onMoveTask(int taskId, Status newStatus) {
         repository.findTask(taskId).ifPresent(task -> {
             task.setStatus(newStatus);
-            refreshBoard();
-            view.showMessage("Moved \"" + task.getTitle() + "\" to " + newStatus.getLabel() + ".");
+            saveAndRefresh("Moved \"" + task.getTitle() + "\" to " + newStatus.getLabel() + ".");
         });
     }
 
-        @Override
+    @Override
     public void onAddTask(TaskData data) {
         Task task = repository.addTask(data);
-        refreshBoard();
-        view.showMessage("Added \"" + task.getTitle() + "\" to To do.");
+        saveAndRefresh("Added \"" + task.getTitle() + "\" to To do.");
     }
 
     @Override
     public void onEditTask(int taskId, TaskData data) {
         repository.findTask(taskId).ifPresent(task -> {
             repository.updateTask(task, data);
-            refreshBoard();
-            view.showMessage("Saved changes to \"" + task.getTitle() + "\".");
+            saveAndRefresh("Saved changes to \"" + task.getTitle() + "\".");
         });
     }
 
@@ -65,8 +127,7 @@ public class Controller implements ViewListener {
     public void onDeleteTask(int taskId) {
         repository.findTask(taskId).ifPresent(task -> {
             repository.deleteTask(taskId);
-            refreshBoard();
-            view.showMessage("Deleted \"" + task.getTitle() + "\".");
+            saveAndRefresh("Deleted \"" + task.getTitle() + "\".");
         });
     }
 }

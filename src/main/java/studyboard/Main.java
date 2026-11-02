@@ -1,7 +1,7 @@
 package studyboard;
 
 import studyboard.controller.Controller;
-import studyboard.model.SampleData;
+import studyboard.model.FileStorage;
 import studyboard.model.TaskRepository;
 import studyboard.view.View;
 import studyboard.view.lanterna.LanternaView;
@@ -15,9 +15,9 @@ public class Main {
     public static void main(String[] args) {
         boolean swing = args.length > 0 && args[0].equals("--swing");
 
-        TaskRepository repository = new TaskRepository(); // Model
-        SampleData.load(repository);                      // example data
-        View view = new LanternaView(swing);              // View (could be any View implementation)
-        new Controller(repository, view).start();         // Controller runs the app
+        TaskRepository repository = new TaskRepository();            // Model (data in memory)
+        FileStorage storage = new FileStorage(FileStorage.defaultPath()); // Model (data on disk)
+        View view = new LanternaView(swing);                         // View
+        new Controller(repository, view, storage).start();           // Controller runs the app
     }
 }

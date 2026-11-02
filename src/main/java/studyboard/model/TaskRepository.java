@@ -73,4 +73,33 @@ public class TaskRepository {
     public boolean deleteTask(int id) {
         return tasks.removeIf(t -> t.getId() == id);
     }
+
+        /** Removes everything (used if a loaded file turns out to be invalid). */
+    public void clear() {
+        subjects.clear();
+        tasks.clear();
+        nextSubjectId = 1;
+        nextTaskId = 1;
+    }
+
+    /** Adds a subject that already has an id (used when loading a file). */
+    public void restoreSubject(int id, String name) {
+        if (subjects.stream().anyMatch(s -> s.getId() == id)) {
+            throw new IllegalArgumentException("duplicate subject id " + id);
+        }
+        subjects.add(new Subject(id, name));
+        nextSubjectId = Math.max(nextSubjectId, id + 1); // new ids must not collide with loaded ones
+    }
+
+    /** Adds a task that already has an id (used when loading a file). */
+    public void restoreTask(Task task) {
+        if (tasks.stream().anyMatch(t -> t.getId() == task.getId())) {
+            throw new IllegalArgumentException("duplicate task id " + task.getId());
+        }
+        if (subjects.stream().noneMatch(s -> s.getId() == task.getSubjectId())) {
+            throw new IllegalArgumentException("task refers to an unknown subject " + task.getSubjectId());
+        }
+        tasks.add(task);
+        nextTaskId = Math.max(nextTaskId, task.getId() + 1);
+    }
 }
