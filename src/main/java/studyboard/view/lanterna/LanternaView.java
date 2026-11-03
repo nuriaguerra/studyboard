@@ -26,6 +26,11 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import studyboard.model.Priority;
 import studyboard.model.TaskData;
+import com.googlecode.lanterna.SGR;
+import studyboard.model.Recommendation;
+import com.googlecode.lanterna.gui2.dialogs.TextInputDialog;
+import java.util.function.Consumer;
+import studyboard.model.Subject;
 
 /** Text mode implementation of View using Lanterna. All the drawing code lives here. */
 public class LanternaView implements View {
@@ -46,6 +51,11 @@ public class LanternaView implements View {
     private Map<Integer, String> subjectNames = Map.of();
     private LocalDate today = LocalDate.now();
     private Integer pendingSelectId;               // task to re-select after redrawing (null = none)
+    // State of the Subjects screen. subjectsList is null while that screen is closed.
+    private ActionListBox subjectsList;
+    private Label subjectsStatus;
+    private List<Subject> shownSubjects = new ArrayList<>();
+    private Map<Integer, Integer> subjectTaskCounts = Map.of();
 
     public LanternaView(boolean useSwing) {
         this.useSwing = useSwing;
@@ -67,6 +77,8 @@ public class LanternaView implements View {
                     case 'n' -> { deliverEvent.set(false); showTaskForm(null); }
                     case 'e' -> { deliverEvent.set(false); editSelectedTask(); }
                     case 'd' -> { deliverEvent.set(false); deleteSelectedTask(); }
+                    case 't' -> { deliverEvent.set(false); listener.onShowToday(); }
+                    case 's' -> { deliverEvent.set(false); listener.onShowSubjects(); }
                     default -> { } // other letters: do nothing for now
                 }
             }
@@ -115,7 +127,7 @@ public class LanternaView implements View {
         board.setLayoutData(LinearLayout.createLayoutData(
                 LinearLayout.Alignment.Fill, LinearLayout.GrowPolicy.CanGrow));
         root.addComponent(board);
-        root.addComponent(new Label("Arrows: move | Enter: details | N: new | E: edit | D: delete | M/B: move | Q: quit"));
+        root.addComponent(new Label("Arrows: move | Enter: details | N/E/D: new/edit/delete | M/B: move | T: Today | S: subjects | Q: quit"));
         statusLine = new Label(" ");
         root.addComponent(statusLine);
         window.setComponent(root);
@@ -126,6 +138,9 @@ public class LanternaView implements View {
     @Override
     public void showMessage(String message) {
         statusLine.setText(message);
+        if (subjectsStatus != null) {   // the Subjects screen is open: show it there too
+            subjectsStatus.setText(message);
+        }
     }
 
     @Override
@@ -141,7 +156,9 @@ public class LanternaView implements View {
             screen = new TerminalScreen(terminal);
             screen.startScreen();
             gui = new MultiWindowTextGUI(screen);
-            gui.addWindowAndWait(window); // blocks until window.close()
+            gui.addWindow(window);      // show the board WITHOUT blocking...
+            listener.onShowToday();     // ...open Today on top of it (blocks until it is closed)...
+            window.waitUntilClosed();   // ...and then wait until the user quits the board
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot start the text user interface", e);
         } finally {
@@ -255,7 +272,7 @@ public class LanternaView implements View {
     /** Form window. existing == null means "new task", otherwise "edit this task". */
     private void showTaskForm(Task existing) {
         if (subjectNames.isEmpty()) {
-            showMessage("There are no subjects yet.");
+            showMessage("There are no subjects yet. Press S to create one.");
             return;
         }
         boolean editing = existing != null;
@@ -366,6 +383,240 @@ public class LanternaView implements View {
             return Double.parseDouble(text.trim().replace(',', '.'));
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("The estimate must be a number of hours, for example 2.5.");
+        }
+    }
+
+    // ------------------------------------------------------------------ Today screen
+
+    @Override
+    public void showToday(List<Recommendation> ranked, Map<Integer, String> subjectNames, LocalDate today) {
+        this.subjectNames = subjectNames; // formatTask() uses these two fields
+        this.today = today;
+
+        BasicWindow todayWindow = new BasicWindow("StudyBoard - Today");
+        todayWindow.setHints(List.of(Window.Hint.CENTERED));
+
+        Panel panel = new Panel();
+        panel.addComponent(new Label("Today: " + today.format(LONG_DATE)));
+        panel.addComponent(new EmptySpace());
+
+        Panel buttons = new Panel(new LinearLayout(Direction.HORIZONTAL));
+
+        if (ranked.isEmpty()) {
+            panel.addComponent(new Label("Nothing pending. All your tasks are done!"));
+        } else {
+            Recommendation next = ranked.get(0);
+            Task task = next.task();
+
+            // The suggestion, in a bordered box.
+            Panel card = new Panel();
+            card.addComponent(new Label(task.getTitle()).addStyle(SGR.BOLD));
+            card.addComponent(new Label(subjectNames.getOrDefault(task.getSubjectId(), "?")
+                    + " | due " + task.getDeadline().format(LONG_DATE)
+                    + " | " + task.getEstimatedHours() + " h"
+                    + " | " + task.getPriority().getLabel() + " priority"));
+            card.addComponent(new EmptySpace());
+            card.addComponent(new Label("Why now?").addStyle(SGR.BOLD));
+            for (String reason : next.reasons()) {
+                card.addComponent(new Label("  - " + reason));
+            }
+            card.addComponent(new Label("Score: " + next.score()));
+            panel.addComponent(card.withBorder(Borders.singleLine("Next up")));
+
+            // The next 4 suggestions, one line each.
+            if (ranked.size() > 1) {
+                panel.addComponent(new EmptySpace());
+                panel.addComponent(new Label("Also coming up").addStyle(SGR.BOLD));
+                for (int i = 1; i < Math.min(5, ranked.size()); i++) {
+                    panel.addComponent(new Label("  " + formatTask(ranked.get(i).task())));
+                }
+            }
+
+            // Main action. Both buttons ask the Controller; the View never changes the Model.
+            if (task.getStatus() == Status.TODO) {
+                buttons.addComponent(new Button("Start it", () -> {
+                    pendingSelectId = task.getId(); // the board cursor will follow the task
+                    listener.onMoveTask(task.getId(), Status.IN_PROGRESS);
+                    todayWindow.close();
+                }));
+            } else {
+                buttons.addComponent(new Button("Mark as done", () -> {
+                    pendingSelectId = task.getId();
+                    listener.onMoveTask(task.getId(), Status.DONE);
+                    todayWindow.close();
+                }));
+            }
+        }
+        buttons.addComponent(new Button("Open board", todayWindow::close));
+
+        panel.addComponent(new EmptySpace());
+        panel.addComponent(buttons);
+        panel.addComponent(new Label("Tab: next button | Enter: choose | Esc: go to the board"));
+        todayWindow.setComponent(panel);
+
+        // Esc = go to the board (same behaviour as in the task form).
+        todayWindow.addWindowListener(new WindowListenerAdapter() {
+            @Override
+            public void onUnhandledInput(Window basePane, KeyStroke keyStroke, AtomicBoolean hasBeenHandled) {
+                if (keyStroke.getKeyType() == KeyType.Escape) {
+                    todayWindow.close();
+                    hasBeenHandled.set(true);
+                }
+            }
+        });
+
+        gui.addWindowAndWait(todayWindow); // blocks until the window is closed
+    }
+
+    // ------------------------------------------------------------------ Subjects screen
+
+    @Override
+    public void showSubjects(List<Subject> subjects, Map<Integer, Integer> taskCounts) {
+        this.shownSubjects = new ArrayList<>(subjects); // copy: the Model's list may change
+        this.subjectTaskCounts = taskCounts;
+
+        // Already open (the Controller refreshes it after every change): just refill the list.
+        if (subjectsList != null) {
+            fillSubjectsList();
+            return;
+        }
+
+        subjectsList = new ActionListBox(new TerminalSize(46, 10));
+        subjectsStatus = new Label(shownSubjects.isEmpty() ? "No subjects yet. Press N to add one." : " ");
+        BasicWindow subjectsWindow = new BasicWindow("StudyBoard - Subjects");
+        subjectsWindow.setHints(List.of(Window.Hint.CENTERED));
+        fillSubjectsList();
+
+        // Visible buttons (recognition) AND letter shortcuts (speed for experts).
+        Panel buttons = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        buttons.addComponent(new Button("New", this::newSubject));
+        buttons.addComponent(new Button("Rename", this::renameSelectedSubject));
+        buttons.addComponent(new Button("Delete", this::deleteSelectedSubject));
+        buttons.addComponent(new Button("Close", subjectsWindow::close));
+
+        Panel panel = new Panel();
+        panel.addComponent(new Label("Your subjects (number of tasks on the right)"));
+        panel.addComponent(subjectsList.withBorder(Borders.singleLine("Subjects")));
+        panel.addComponent(buttons);
+        panel.addComponent(new Label("N: new | R or Enter: rename | D: delete | Esc: back to the board"));
+        panel.addComponent(subjectsStatus);
+        subjectsWindow.setComponent(panel);
+
+        subjectsWindow.addWindowListener(new WindowListenerAdapter() {
+            @Override
+            public void onInput(Window basePane, KeyStroke keyStroke, AtomicBoolean deliverEvent) {
+                if (keyStroke.getKeyType() != KeyType.Character
+                        || keyStroke.isCtrlDown() || keyStroke.isAltDown()) {
+                    return;
+                }
+                switch (Character.toLowerCase(keyStroke.getCharacter())) {
+                    case 'n' -> { deliverEvent.set(false); newSubject(); }
+                    case 'r' -> { deliverEvent.set(false); renameSelectedSubject(); }
+                    case 'd' -> { deliverEvent.set(false); deleteSelectedSubject(); }
+                    default -> { }
+                }
+            }
+
+            @Override
+            public void onUnhandledInput(Window basePane, KeyStroke keyStroke, AtomicBoolean hasBeenHandled) {
+                if (keyStroke.getKeyType() == KeyType.Escape) {
+                    subjectsWindow.close();
+                    hasBeenHandled.set(true);
+                }
+            }
+        });
+
+        try {
+            gui.addWindowAndWait(subjectsWindow); // blocks until the window closes
+        } finally {
+            subjectsList = null;   // "the screen is closed" for showSubjects() and showMessage()
+            subjectsStatus = null;
+        }
+    }
+
+    /** Refills the list from shownSubjects and keeps the cursor near where it was. */
+    private void fillSubjectsList() {
+        int previous = subjectsList.getSelectedIndex();
+        subjectsList.clearItems();
+        for (Subject subject : shownSubjects) {
+            int count = subjectTaskCounts.getOrDefault(subject.getId(), 0);
+            // Enter on an item = rename it.
+            subjectsList.addItem(String.format("%-30s %3d task(s)", subject.getName(), count),
+                    () -> renameSubject(subject));
+        }
+        if (!shownSubjects.isEmpty()) {
+            subjectsList.setSelectedIndex(Math.max(0, Math.min(previous, shownSubjects.size() - 1)));
+        }
+    }
+
+    private Subject selectedSubject() {
+        int index = subjectsList.getSelectedIndex();
+        return (index >= 0 && index < shownSubjects.size()) ? shownSubjects.get(index) : null;
+    }
+
+    private void newSubject() {
+        subjectNameDialog("New subject", "", name -> {
+            listener.onAddSubject(name);
+            // The Controller already refreshed the list: put the cursor on the new (last) subject.
+            subjectsList.setSelectedIndex(shownSubjects.size() - 1);
+        });
+    }
+
+    private void renameSelectedSubject() {
+        Subject subject = selectedSubject();
+        if (subject == null) {
+            showMessage("Select a subject first (arrow keys).");
+            return;
+        }
+        renameSubject(subject);
+    }
+
+    private void renameSubject(Subject subject) {
+        subjectNameDialog("Rename subject", subject.getName(),
+                name -> listener.onRenameSubject(subject.getId(), name));
+    }
+
+    /**
+     * Asks for a name and runs 'action' with it. If the name is not valid (the Model throws
+     * IllegalArgumentException) the message is shown and the question is asked again with
+     * the same text, so the user does not have to type everything again.
+     */
+    private void subjectNameDialog(String dialogTitle, String initialText, Consumer<String> action) {
+        String text = initialText;
+        while (true) {
+            text = TextInputDialog.showDialog(gui, dialogTitle, "Subject name:", text);
+            if (text == null) {           // Cancel or Esc
+                showMessage("Cancelled.");
+                return;
+            }
+            try {
+                action.accept(text);
+                return;                   // success
+            } catch (IllegalArgumentException e) {
+                MessageDialog.showMessageDialog(gui, "Please check the name", e.getMessage());
+            }
+        }
+    }
+
+    /** Confirmation (error prevention) that says exactly how many tasks will be lost. */
+    private void deleteSelectedSubject() {
+        Subject subject = selectedSubject();
+        if (subject == null) {
+            showMessage("Select a subject first (arrow keys).");
+            return;
+        }
+        int count = subjectTaskCounts.getOrDefault(subject.getId(), 0);
+        String text = (count == 0)
+                ? "Delete the subject \"" + subject.getName() + "\"?"
+                : "Delete the subject \"" + subject.getName() + "\" and its " + count
+                        + " task(s)?\nThis cannot be undone.";
+        // "No" first = the safe answer is the default one.
+        MessageDialogButton answer = MessageDialog.showMessageDialog(gui, "Delete subject", text,
+                MessageDialogButton.No, MessageDialogButton.Yes);
+        if (answer == MessageDialogButton.Yes) {
+            listener.onDeleteSubject(subject.getId());
+        } else {
+            showMessage("Delete cancelled.");
         }
     }
 }

@@ -13,6 +13,8 @@ import studyboard.model.TaskData;
 import studyboard.model.TaskRepository;
 import studyboard.view.View;
 import studyboard.view.ViewListener;
+import studyboard.model.TaskScorer;
+import studyboard.model.Subject;
 
 /** Connects Model and View. Contains NO Lanterna code (it only knows the View interface). */
 public class Controller implements ViewListener {
@@ -128,6 +130,45 @@ public class Controller implements ViewListener {
         repository.findTask(taskId).ifPresent(task -> {
             repository.deleteTask(taskId);
             saveAndRefresh("Deleted \"" + task.getTitle() + "\".");
+        });
+    }
+
+    @Override
+    public void onShowToday() {
+        LocalDate today = LocalDate.now();
+        // The Model decides WHAT to suggest; the View only decides how to show it.
+        view.showToday(TaskScorer.rank(repository.getTasks(), today),
+                repository.getSubjectNames(), today);
+    }
+
+    @Override
+    public void onShowSubjects() {
+        view.showSubjects(repository.getSubjects(), repository.getTaskCounts());
+    }
+
+    @Override
+    public void onAddSubject(String name) {
+        Subject subject = repository.addSubject(name); // throws if invalid: the View shows the message
+        saveAndRefresh("Added subject \"" + subject.getName() + "\".");
+        onShowSubjects(); // refresh the Subjects screen (it is open)
+    }
+
+    @Override
+    public void onRenameSubject(int subjectId, String newName) {
+        repository.findSubject(subjectId).ifPresent(subject -> {
+            repository.renameSubject(subject, newName);
+            saveAndRefresh("Renamed subject to \"" + subject.getName() + "\".");
+            onShowSubjects();
+        });
+    }
+
+    @Override
+    public void onDeleteSubject(int subjectId) {
+        repository.findSubject(subjectId).ifPresent(subject -> {
+            String name = subject.getName(); // keep it for the message
+            int removedTasks = repository.deleteSubject(subjectId);
+            saveAndRefresh("Deleted subject \"" + name + "\" and " + removedTasks + " task(s).");
+            onShowSubjects();
         });
     }
 }

@@ -19,7 +19,8 @@ public class TaskRepository {
     private int nextTaskId = 1;
 
     public Subject addSubject(String name) {
-        Subject subject = new Subject(nextSubjectId, name); // may throw if name is empty
+        checkNameFree(name, -1);                            // ids start at 1, so -1 means "nobody"
+        Subject subject = new Subject(nextSubjectId, name); // may throw if name is empty or too long
         nextSubjectId++;                                    // only reached if creation succeeded
         subjects.add(subject);
         return subject;
@@ -101,5 +102,51 @@ public class TaskRepository {
         }
         tasks.add(task);
         nextTaskId = Math.max(nextTaskId, task.getId() + 1);
+    }
+
+        // ------------------------------------------------------------------ subjects management
+
+    /** Optional = "maybe there is no such subject". */
+    public Optional<Subject> findSubject(int id) {
+        return subjects.stream().filter(s -> s.getId() == id).findFirst();
+    }
+
+    /** Changes the name of a subject (same rules as when creating one). */
+    public void renameSubject(Subject subject, String newName) {
+        checkNameFree(newName, subject.getId()); // the subject itself may keep its own name
+        subject.setName(newName);
+    }
+
+    /**
+     * Deletes a subject AND all its tasks (a task without a subject would be invalid).
+     * Returns how many tasks were deleted, so the UI can tell the user.
+     */
+    public int deleteSubject(int id) {
+        int before = tasks.size();
+        tasks.removeIf(t -> t.getSubjectId() == id);
+        subjects.removeIf(s -> s.getId() == id);
+        return before - tasks.size();
+    }
+
+    /** Map subjectId -> number of tasks of that subject. */
+    public Map<Integer, Integer> getTaskCounts() {
+        Map<Integer, Integer> counts = new LinkedHashMap<>();
+        for (Task t : tasks) {
+            counts.merge(t.getSubjectId(), 1, Integer::sum); // add 1, or start at 1
+        }
+        return counts;
+    }
+
+    /** Rejects a name already used by ANOTHER subject (ignoring upper/lower case). */
+    private void checkNameFree(String name, int exceptId) {
+        if (name == null) {
+            return; // the Subject class reports this case
+        }
+        String wanted = name.trim();
+        for (Subject s : subjects) {
+            if (s.getId() != exceptId && s.getName().equalsIgnoreCase(wanted)) {
+                throw new IllegalArgumentException("A subject called \"" + s.getName() + "\" already exists.");
+            }
+        }
     }
 }

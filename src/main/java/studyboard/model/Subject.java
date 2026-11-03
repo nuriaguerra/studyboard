@@ -19,9 +19,12 @@ public class Subject {
     }
 
     public void setName(String name) {
-        // Error prevention: never allow an empty subject name.
+        // Error prevention: never allow an empty or very long subject name.
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Subject name cannot be empty.");
+        }
+        if (name.trim().length() > 30) {
+            throw new IllegalArgumentException("Subject name is too long (maximum 30 characters).");
         }
         this.name = name.trim();
     }
