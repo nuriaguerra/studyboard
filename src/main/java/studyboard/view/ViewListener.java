@@ -1,25 +1,29 @@
 package studyboard.view;
 
-import studyboard.model.Status;
-import studyboard.model.TaskData;
+import studyboard.model.*;
 
 /**
- * Events the View sends to the Controller ("the user wants X").
- * onAddSubject and onRenameSubject throw IllegalArgumentException with a message
- * written for the user when the name is not valid; the View shows that message.
+ * Eventos que la View manda al Controller: "el usuario quiere X".
+ * (La View NUNCA toca los datos: solo avisa por aquí.)
+ * onAddSubject y onRenameSubject lanzan IllegalArgumentException con un mensaje
+ * para el usuario si el nombre no vale; la View muestra ese mensaje.
  */
 public interface ViewListener {
-    void onMoveTask(int taskId, Status newStatus);
-    void onAddTask(TaskData data);
-    void onEditTask(int taskId, TaskData data);
-    void onDeleteTask(int taskId);
+    void onMoveTask(int taskId, Status newStatus);   // mover tarea de columna
+    void onAddTask(TaskData data);                   // crear tarea
+    void onEditTask(int taskId, TaskData data);      // editar tarea
+    void onDeleteTask(int taskId);                   // borrar tarea
 
-    /** The user wants the Today screen. The View also calls this once when the app starts. */
-    void onShowToday();
+    void onShowToday();                              // abrir pantalla Today
+    void onShowSubjects();                           // abrir pantalla de asignaturas
+    void onAddSubject(String name);                  // crear asignatura
+    void onRenameSubject(int subjectId, String newName); // renombrar asignatura
+    void onDeleteSubject(int subjectId);             // borrar asignatura
 
-    /** The user wants the Subjects screen. */
-    void onShowSubjects();
-    void onAddSubject(String name);
-    void onRenameSubject(int subjectId, String newName);
-    void onDeleteSubject(int subjectId);
+    void onUndo();                                   // deshacer el último cambio de datos
+
+    /** El usuario cambió lo que muestra el tablero (TaskFilter.NONE = mostrar todo). */
+    void onChangeView(TaskFilter filter, SortOrder sort);
+
+        void onShowCalendar();   // abrir el calendario
 }

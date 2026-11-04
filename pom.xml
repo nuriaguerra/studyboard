@@ -37,6 +37,13 @@
       <version>3.1.3</version>
       <!-- La versión exacta de Lanterna que vamos a descargar y usar -->
     </dependency>
+        <!-- JUnit 5: testing framework. scope=test means it is NOT packed into the final jar. -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.11.4</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -44,6 +51,13 @@
     <finalName>studyboard</finalName>
     <!-- Nombre que tendrá el archivo ejecutable final generado -->
     <plugins>
+    
+        <!-- Surefire runs the tests -->   <!-- aquí NO debe haber un + -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+      </plugin>
       <!-- Plugins o herramientas adicionales para el proceso de construcción -->
       <plugin>
         <!-- Plugin de Maven encargado de empaquetar -->

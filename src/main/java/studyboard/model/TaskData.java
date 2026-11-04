@@ -1,16 +1,19 @@
 package studyboard.model;
 
-import java.time.LocalDate;
+import java.time.*; // LocalDate
 
 /**
- * The data a user types into the task form. A "record" is a compact immutable class.
- * The compact constructor runs on creation, so an invalid TaskData can never exist:
- * the validation rules live in the Model, and the View only shows the message.
+ * Los datos que el usuario escribe en el formulario de tarea.
+ * "record" = clase compacta e inmutable: Java crea solo el constructor y los getters
+ * (se leen como data.title(), sin "get").
+ * El bloque { ... } de abajo (constructor compacto) se ejecuta al crear el objeto:
+ * así NUNCA existe un TaskData inválido. Las reglas viven en el Model;
+ * la View solo enseña el mensaje de error.
  */
 public record TaskData(String title, String notes, int subjectId, Priority priority,
                        LocalDate deadline, double estimatedHours) {
 
-    public TaskData {
+    public TaskData { // constructor compacto: valida y limpia
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("The title cannot be empty.");
         }
@@ -25,7 +28,7 @@ public record TaskData(String title, String notes, int subjectId, Priority prior
         if (deadline == null) {
             throw new IllegalArgumentException("The deadline is required.");
         }
-        // isFinite rejects NaN and Infinity, which Double.parseDouble would accept.
+        // isFinite rechaza NaN e Infinity, que parseDouble sí aceptaría
         if (!Double.isFinite(estimatedHours) || estimatedHours < 0 || estimatedHours > 100) {
             throw new IllegalArgumentException("The estimate must be between 0 and 100 hours.");
         }
