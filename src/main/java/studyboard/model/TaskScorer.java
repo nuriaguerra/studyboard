@@ -1,10 +1,10 @@
 package studyboard.model;
 
-import java.time.*; // LocalDate
-import java.util.*; // List, ArrayList, Comparator
+import java.time.*; //LocalDate
+import java.util.*; //List, ArrayList, Comparator
 
 /**
- * Decides "what should I do next?". Pure logic: no screen code and no files.
+ * Decides "what should I do next?".
  * It is a table of points that is easy to explain and easy to change: more points = do it earlier.
  * Every rule that gives points also writes a "reason", and those reasons are what the user
  * reads under "Why now?" on the Today screen.
@@ -22,23 +22,23 @@ public final class TaskScorer {
         }
         // Highest score first (reversed). Ties: earlier deadline first, then lower id (stable order).
         // "r -> r.task().getDeadline()" is a lambda: "given a recommendation r, take the deadline of its task".
-        result.sort(Comparator.comparingInt(Recommendation::score).reversed()
-                .thenComparing(r -> r.task().getDeadline())
-                .thenComparingInt(r -> r.task().getId()));
+        result.sort(Comparator.comparingInt(Recommendation::score).reversed() //first the score
+                .thenComparing(r -> r.task().getDeadline()) //secord the deadline
+                .thenComparingInt(r -> r.task().getId())); //third the id
         return result;
     }
 
-    /** Gives points to ONE task and records a reason for every rule that applied. */
+    /** Gives points to one task and records a reason for every rule that applied. */
     public static Recommendation score(Task task, LocalDate today) {
         List<String> reasons = new ArrayList<>(); // reasons the user will see
         int points = 0;
         long days = task.daysUntilDeadline(today); // negative = overdue
 
-        // RULE 1: how close is the deadline? (always applies, so there is always at least one reason)
-        if (days < 0) {
+        // RULE 1: how close is the deadline (always applies, so there is always at least one reason)
+        if (days < 0) { //its overdue
             points += 60;
             reasons.add("Overdue by " + daysText(-days)); // -days turns -3 into 3
-        } else if (days == 0) {
+        } else if (days == 0) { //today
             points += 55;
             reasons.add("Due today");
         } else {
