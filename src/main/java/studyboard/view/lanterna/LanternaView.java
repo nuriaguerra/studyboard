@@ -306,26 +306,27 @@ public class LanternaView implements View {
 
     ///// general helpers
 
-    /** One line per task. Priority symbol + "LATE": the colour is never the only signal. */
+    /** One line per task. Priority symbol + "LATE" if the task is overdue. */
     private String formatTask(Task task) {
         // getOrDefault looks for the key in the map and returns "?" if the subject does not exist
         String subject = subjectNames.getOrDefault(task.getSubjectId(), "?");
         String late = task.isOverdue(today) ? "LATE " : ""; // condition ? valueIfTrue : valueIfFalse
+
         // %-2s = a text left-aligned in 2 characters, %s = a text. So "!!", "! " and "  " keep the titles aligned.
-        return String.format("%-2s %s%s (%s, %s)", task.getPriority().getSymbol(), late,
-                task.getTitle(), subject, task.getDeadline().format(SHORT_DATE));
+        return String.format("%-2s %s%s (%s, %s)", task.getPriority().getSymbol(), late, task.getTitle(), subject, task.getDeadline().format(SHORT_DATE));
     }
 
     /** Makes the Esc key close the given window (ALL the secondary windows use it). */
     private void closeOnEsc(BasicWindow w) {
-        w.addWindowListener(new WindowListenerAdapter() {
-            // onUnhandledInput only receives the keys that no component used
-            // (so Esc still closes an open drop-down list in the normal way, and not the whole window)
+        w.addWindowListener(new WindowListenerAdapter() { //add a listener to the window that reacts to keys
+
+            //onUnhandledInput is called when the window does not know what to do with a key (it is "unhandled").
+            // (so Esc is not used by any component inside the window, and we can use it for closing the window)
             @Override
             public void onUnhandledInput(Window basePane, KeyStroke key, AtomicBoolean handled) {
-                if (key.getKeyType() == KeyType.Escape) {
+                if (key.getKeyType() == KeyType.Escape) { //if the key is Esc, we close the window and say that we handled it (so the window does not send it to the components)
                     w.close();
-                    handled.set(true); // we say: this key is already used
+                    handled.set(true); //this key is already used, its an atomic boolean so we can change it from here and Lanterna will read it afterwards
                 }
             }
         });
@@ -333,22 +334,20 @@ public class LanternaView implements View {
 
     /**
      * Opens the help of a window with F1. If letterKeys is true, also with H or ?.
-     * (In forms with text boxes letterKeys is false: if not, typing an "h" would open the help.)
-     * We use F1 AND letters because some terminals keep the F1 key for their own help.
+     * We use F1 and letters because some terminals keep the F1 key for their own help.
      */
     private void helpOnKey(BasicWindow w, String title, String text, boolean letterKeys) {
-        w.addWindowListener(new WindowListenerAdapter() {
-            @Override
+        w.addWindowListener(new WindowListenerAdapter() { //add a listener to the window that reacts to keys
+            @Override // onInput is called every time a key is pressed while this window is on top
             public void onInput(Window basePane, KeyStroke key, AtomicBoolean deliverEvent) {
+
                 boolean f1 = key.getKeyType() == KeyType.F1; // the F1 key is not a "Character" key
                 // A letter counts only if letterKeys is true, it is a normal character (no Ctrl / Alt) and it is h, H or ?
                 boolean letter = letterKeys && key.getKeyType() == KeyType.Character
-                        && !key.isCtrlDown() && !key.isAltDown()
-                        && (key.getCharacter() == 'h' || key.getCharacter() == 'H'
-                            || key.getCharacter() == '?');
-                if (f1 || letter) {
+                        && !key.isCtrlDown() && !key.isAltDown() && (key.getCharacter() == 'h' || key.getCharacter() == 'H' || key.getCharacter() == '?');
+                if (f1 || letter) { // if the user pressed F1 or H or ?, we show the help dialog and keep the key for ourselves
                     deliverEvent.set(false); // the key is ours
-                    MessageDialog.showMessageDialog(gui, title, text); // a small window with an OK button
+                    MessageDialog.showMessageDialog(gui, title, text); // show the help dialog with the given title and text
                 }
             }
         });
