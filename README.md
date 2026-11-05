@@ -15,12 +15,6 @@ I have several courses running at the same time, and the hard part is never writ
 - **Context help** on every screen (`H` or `F1`).
 - **Automatic saving.** There is no save button. Every change is written to disk.
 
-## Requirements
-
-- Java 21 or newer
-- Maven (only if you want to build it yourself)
-- A terminal of at least about 80x24 characters
-
 ## Build and run
 
 ```bash
