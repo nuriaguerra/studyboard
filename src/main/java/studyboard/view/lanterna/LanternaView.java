@@ -16,9 +16,12 @@ import studyboard.model.*;
 import studyboard.view.*;
 
 /**
- * VIEW en modo texto con Lanterna. TODO el código de dibujo está aquí.
- * Regla para entender cualquier método: la View NUNCA cambia datos.
- * Solo llama a listener.onXxx(...) (el Controller) y dibuja lo que éste le manda con showXxx(...).
+ * LanternaView is the MVC View and do two things: 
+ * it draws the screen what the Controller tells it to draw 
+ * and calls the Controller when the user does something (listener.onXxx(...) methods).
+ * 
+ * The View never changes data. 
+ * Only calls listener.onXxx(...) (the Controller) and draws what it sends with showXxx(...).
  *
  * Ideas de Lanterna que se usan:
  *  - Window: una ventana. Panel: contenedor de componentes. Label: texto. Button: botón.
@@ -26,35 +29,42 @@ import studyboard.view.*;
  *  - Una lambda "() -> algo" es código que se ejecuta más tarde (p. ej. al pulsar un botón).
  */
 public class LanternaView implements View {
-    // Formatos de fecha: 02.11 (corto) y 02.11.2026 (largo)
-    private static final DateTimeFormatter SHORT_DATE = DateTimeFormatter.ofPattern("dd.MM");
-    private static final DateTimeFormatter LONG_DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-    // STRICT + "uuuu": 31.02.2026 se rechaza en vez de cambiarse en silencio a 28.02.2026
-    private static final DateTimeFormatter DATE_INPUT =
-            DateTimeFormatter.ofPattern("dd.MM.uuuu").withResolverStyle(ResolverStyle.STRICT);
 
-    // ---- TEXTOS DE AYUDA (uno por pantalla: ayuda "contextual"). Un """ ... """ es un texto de varias líneas.
+    // Date formatters: 02.11 (short) and 02.11.2026 (long)
+
+    // DateTimeFormater.onPattern is for formatting and parsing dates in a specific pattern.
+    private static final DateTimeFormatter SHORT_DATE = DateTimeFormatter.ofPattern("dd.MM"); 
+    private static final DateTimeFormatter LONG_DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    
+    
+    // .withResolverStyle(ResolverStyle.STRICT) ensures that the date is strictly validated.
+    // ResolverStyle.STRICT means that invalid dates (like 31.02.2026) will be rejected instead of being silently adjusted to a valid date (like 28.02.2026).
+    private static final DateTimeFormatter DATE_INPUT = DateTimeFormatter.ofPattern("dd.MM.uuuu").withResolverStyle(ResolverStyle.STRICT);
+
+    ///////Help test (one per screen)
+
+    // """ ... """ its a text of several lines.
     private static final String BOARD_HELP = """
             MOVE AROUND
-              Arrow keys / Tab   Choose a task or change column
-              Enter              Show the details of a task
+                Arrow keys / Tab   Choose a task or change column
+                Enter              Show the details of a task
 
             TASKS
-              N  New task           E  Edit the selected task
-              D  Delete (asks first)
-              M  Move task to the next column  (To do > In progress > Done)
-              B  Move task to the previous column
-              U  Undo the last change (up to 20)
+                N  New task           E  Edit the selected task
+                D  Delete (asks first)
+                M  Move task to the next column  (To do > In progress > Done)
+                B  Move task to the previous column
+                U  Undo the last change (up to 20)
 
             FIND
-              /  Quick search       F  Filter and sort
-              X  Clear the filter
+                /  Quick search       F  Filter and sort
+                X  Clear the filter
 
             OTHER SCREENS
-              T  Today: what to do next and why
-              S  Subjects: create, rename, delete
-              Q  Quit (your data is saved automatically)
-              C  Calendar: deadlines by month """;
+                T  Today: what to do next and why
+                S  Subjects: create, rename, delete
+                Q  Quit (your data is saved automatically)
+                C  Calendar: deadlines by month """;
 
     private static final String TODAY_HELP = """
             This screen suggests the next task to work on.
@@ -62,24 +72,25 @@ public class LanternaView implements View {
             deadline, priority, size of the task and whether
             you have already started it.
 
-              Tab     Next button
-              Enter   Press the selected button
-              Esc     Back to the board
+                Tab     Next button
+                Enter   Press the selected button
+                Esc     Back to the board
 
             "Start it" / "Mark as done" moves the task for you.""";
 
     private static final String SUBJECTS_HELP = """
-              Up / Down   Choose a subject
-              Enter       Menu: rename or delete
-              N  New subject      R  Rename
-              D  Delete (asks first; its tasks are deleted too)
-              U  Undo the last change
-              Esc         Back to the board""";
+                Up / Down   Choose a subject
+                Enter       Show the menu for the selected subject
+
+                N  New subject      R  Rename
+                D  Delete (asks first and its tasks are deleted too)
+                U  Undo the last change
+            Esc         Back to the board""";
 
     private static final String TASK_FORM_HELP = """
-              Tab / Shift+Tab   Next / previous field
-              Enter             Press the selected button
-              Esc               Cancel without saving
+                Tab / Shift+Tab   Next / previous field
+                Enter             Press the selected button
+                Esc               Cancel without saving
 
             Deadline: DD.MM.YYYY (for example 25.11.2026).
             Estimate: hours, for example 2.5 (0 to 100).""";
@@ -89,43 +100,52 @@ public class LanternaView implements View {
             All the conditions you set must match at the same time.
             "Clear filter" shows every task again.
 
-              Tab   Next field        Esc   Cancel""";
+                Tab   Next field        Esc   Cancel""";
 
     private static final String CALENDAR_HELP = """
-              Left / Right   Previous / next month
-              T              Back to the current month
-              Esc            Back to the board
+                Left / Right   Previous / next month
+                T              Back to the current month
+                Esc            Back to the board
 
             [ 4]  = today
             *2    = 2 tasks due that day, at least one still pending
             +1    = 1 task due that day, already done""";
 
-    private final boolean useSwing;  // true = ventana emulada aparte (--swing)
-    private final BasicWindow window = new BasicWindow("StudyBoard - Board"); // ventana del tablero
-    private ViewListener listener;   // el Controller (se asigna en setListener)
-    private MultiWindowTextGUI gui;  // gestor de ventanas (se crea en run())
+    //Indicates whether to use the Swing graphical user interface (true) or not (false)
+    private final boolean useSwing; 
 
-    // ---- Estado del tablero que está en pantalla ----
-    private final ActionListBox[] lists = new ActionListBox[Status.values().length]; // 1 lista por columna
-    private final List<List<Task>> columnTasks = new ArrayList<>(); // tareas de cada columna (mismo orden)
-    private Label statusLine = new Label(" ");                      // línea de mensajes (feedback)
-    private Map<Integer, String> subjectNames = Map.of();           // id asignatura -> nombre
-    private LocalDate today = LocalDate.now();
-    private Integer pendingSelectId; // tarea a re-seleccionar tras redibujar (null = ninguna)
-    private BoardOptions options = new BoardOptions(TaskFilter.NONE, SortOrder.DEADLINE, 0); // filtro/orden actuales
+    //BasicWindow is a window that can contain components and be displayed on the screen.
+    private final BasicWindow window = new BasicWindow("StudyBoard - Board"); //board window (the main window of the application)
+    //ViewListener is an interface that defines the methods that the Controller must implement to handle user actions.
+    private ViewListener listener; //the controller is assigned in setListener
+    //MultiWindowTextGUI is a class that manages multiple windows and handles user input and output.
+    private MultiWindowTextGUI gui;  // window manager (created in run())
 
-    // ---- Estado de la pantalla Subjects (subjectsList es null mientras está cerrada) ----
-    private ActionListBox subjectsList;
-    private Label subjectsStatus;
-    private List<Subject> shownSubjects = new ArrayList<>();
-    private Map<Integer, Integer> subjectTaskCounts = Map.of();
+    //////Store the state of the board screen, including the lists of tasks in each column, the tasks themselves, and other relevant information.
 
-    private YearMonth calMonth; // mes que muestra el calendario (YearMonth = año + mes, sin día)
+    //ActionListBox is a component that displays a list of items and allows the user to select one and perform an action on it.
+    private final ActionListBox[] lists = new ActionListBox[Status.values().length]; //one list per column (To do, In progress, Done)
+    private final List<List<Task>> columnTasks = new ArrayList<>(); //List of lists of tasks, one list for each column (To do, In progress, Done)
+    private Label statusLine = new Label(" "); //label for displaying messages to the user (initially empty)
+    private Map<Integer, String> subjectNames = Map.of(); //Map of subject IDs to subject names (used for displaying task information)
+    private LocalDate today = LocalDate.now(); //current date (used for calculating deadlines and displaying information)
+    private Integer pendingSelectId; // ID of the task that should be selected after an action (e.g., moving or editing a task)
+    // current board options, including the active filter, sort order, and total number of tasks (initially set to no filter, sort by deadline, and 0 total tasks)
+    private BoardOptions options = new BoardOptions(TaskFilter.NONE, SortOrder.DEADLINE, 0); 
 
-    // ================================================================== constructor
+    ///// state of the board screen Subjects (subjectsList is null while closed)
+    private ActionListBox subjectsList; // List of subjects displayed (ActionListBox is a component that displays a list of items and allows the user to select one and perform an action on it.)
+    private Label subjectsStatus; //label used to display messages related to subjects (e.g., "No subjects yet. Press N to add one.")
+    private List<Subject> shownSubjects = new ArrayList<>(); // List of subjects currently displayed in the subjectsList
+    //Map of subject IDs to the number of tasks associated with each subject (Map.of() creates an immutable empty map)
+    private Map<Integer, Integer> subjectTaskCounts = Map.of(); 
+
+    private YearMonth calMonth; // current month displayed in the calendar view (YearMonth is a class that represents a specific month of a specific year)
+
+    //constructor
 
     public LanternaView(boolean useSwing) {
-        this.useSwing = useSwing;
+        this.useSwing = useSwing; // store the preference for using Swing or not
         window.setHints(List.of(Window.Hint.FULL_SCREEN)); // la ventana ocupa todo el terminal
 
         // Teclas globales del tablero. onInput se llama ANTES de que el componente vea la tecla,
