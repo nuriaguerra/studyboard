@@ -1,7 +1,7 @@
 package studyboard.model;
 
-import java.time.*;          // LocalDate
-import java.time.temporal.*; // ChronoUnit (used to count days between two dates)
+import java.time.*; // LocalDate
+import java.time.temporal.*; //ChronoUnit (used to count days between two dates)
 
 /** One study task, for example "Write HCI report". Only data + logic, nothing about the screen. */
 public class Task {
