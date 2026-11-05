@@ -22,11 +22,6 @@ import studyboard.view.*;
  *
  * The View never changes data.
  * It only calls listener.onXxx(...) (the Controller) and draws what the Controller sends with showXxx(...).
- *
- * Ideas of Lanterna that are used here:
- *  - Window: a window. Panel: a container of components. Label: text. Button: a button.
- *  - gui.addWindowAndWait(w): shows the window and WAITS until it is closed.
- *  - A lambda "() -> something" is code that is saved and executed later (for example when a button is pressed).
  */
 public class LanternaView implements View {
 
@@ -132,20 +127,21 @@ public class LanternaView implements View {
 
     // ActionListBox is a component that shows a list of items; each item has a text and an action (run on Enter).
     private final ActionListBox[] lists = new ActionListBox[Status.values().length]; // one list per column (To do, In progress, Done)
-    // A ActionListBox only stores texts and actions, NOT Task objects, so we keep the tasks of each column in
+    // A ActionListBox only stores texts and actions, not Task objects, so we keep the tasks of each column in
     // a parallel list (same order). columnTasks.get(column).get(row) = the task shown in that row.
     private final List<List<Task>> columnTasks = new ArrayList<>();
     private Label statusLine = new Label(" "); // label for the messages to the user (it starts empty)
     private Map<Integer, String> subjectNames = Map.of(); // subjectId -> subject name (Map.of() = empty and unmodifiable)
     private LocalDate today = LocalDate.now(); // today's date (to know if a task is late and to write "due in N days")
     private Integer pendingSelectId; // id of the task to select again after redrawing (null = none). Integer can be null.
+    
     // The current board options: active filter, sort order and total number of tasks.
     // The first value is only a starting point; the Controller sends the real one on every redraw.
     private BoardOptions options = new BoardOptions(TaskFilter.NONE, SortOrder.DEADLINE, 0);
 
     ///// State of the Subjects screen (subjectsList is null while that screen is closed)
     private ActionListBox subjectsList; // the list of subjects on the screen
-    private Label subjectsStatus;       // label for messages inside the Subjects screen
+    private Label subjectsStatus;   // label for messages inside the Subjects screen
     private List<Subject> shownSubjects = new ArrayList<>(); // subjects currently shown in the list (same order as the rows)
     // Map of subjectId -> number of tasks of that subject
     private Map<Integer, Integer> subjectTaskCounts = Map.of();
@@ -158,43 +154,45 @@ public class LanternaView implements View {
         this.useSwing = useSwing; // store the preference for the emulated window
         window.setHints(List.of(Window.Hint.FULL_SCREEN)); // the window will occupy the whole terminal
 
-        // Global keys of the board. onInput is called BEFORE the component sees the key,
-        // so we only react to our own letters and leave arrows / Enter / Tab alone.
+        // onInput is called before the component sees the key, so we only react to our own letters and leave arrows / Enter / Tab alone.
         // "new WindowListenerAdapter() { ... }" creates an object of an anonymous class: a class without
         // a name that we only need once. The Adapter has all its methods empty, so we only override onInput.
         window.addWindowListener(new WindowListenerAdapter() {
+
             @Override // onInput is called every time a key is pressed while this window is on top
             public void onInput(Window basePane, KeyStroke key, AtomicBoolean deliverEvent) {
                 // If the key is not a character key, or Ctrl or Alt is pressed, we ignore it and leave the method.
-                // Arrows, Enter, Tab, Esc... are not "Character" keys, so they keep working normally.
+                //Arrows, Enter, Tab, Esc... are not "Character" keys, so they keep working normally.
                 if (key.getKeyType() != KeyType.Character || key.isCtrlDown() || key.isAltDown()) {
                     return;
                 }
-                // deliverEvent.set(false) = "this key is mine, do not give it to the focused component".
-                // AtomicBoolean is a box that holds a boolean: the method changes the content of the box
+                // deliverEvent.set(false) for keep the key for ourselves (the window does not send it to the components).
+                //AtomicBoolean holds a boolean: the method changes the content of the box
                 // and Lanterna reads it afterwards (a plain boolean parameter could not be changed from here).
+
                 switch (Character.toLowerCase(key.getCharacter())) { // lowercase, so N and n do the same
 
-                    // "case X -> { ... }" runs ONLY that block (no "break" is needed, it never falls into the next case)
-                    case 'q' -> { deliverEvent.set(false); window.close(); }          // quit: closing the main window ends run()
-                    case 'm' -> { deliverEvent.set(false); moveSelectedTask(+1); }    // move right
-                    case 'b' -> { deliverEvent.set(false); moveSelectedTask(-1); }    // move left (b = back)
-                    case 'n' -> { deliverEvent.set(false); showTaskForm(null); }      // new task (null = there is no existing task)
-                    case 'e' -> { deliverEvent.set(false); editSelectedTask(); }      // edit
-                    case 'd' -> { deliverEvent.set(false); deleteSelectedTask(); }    // delete
-                    case 't' -> { deliverEvent.set(false); listener.onShowToday(); }  // today (we ask the Controller)
+                    // "case X -> { ... }" runs only that block (no "break" is needed, it never falls into the next case)
+                    case 'q' -> { deliverEvent.set(false); window.close(); }   // quit: closing the main window ends run()
+                    case 'm' -> { deliverEvent.set(false); moveSelectedTask(+1); }  // move right
+                    case 'b' -> { deliverEvent.set(false); moveSelectedTask(-1); }  // move left (b = back)
+                    case 'n' -> { deliverEvent.set(false); showTaskForm(null); } // new task (null when there is no existing task)
+                    case 'e' -> { deliverEvent.set(false); editSelectedTask(); }  // edit
+                    case 'd' -> { deliverEvent.set(false); deleteSelectedTask(); } // delete
+                    case 't' -> { deliverEvent.set(false); listener.onShowToday(); } // today (we ask the Controller)
                     case 's' -> { deliverEvent.set(false); listener.onShowSubjects(); } // subjects (we ask the Controller)
-                    case 'f' -> { deliverEvent.set(false); showFilterForm(); }        // filter and sort
-                    case '/' -> { deliverEvent.set(false); quickSearch(); }           // quick search
-                    case 'x' -> { deliverEvent.set(false); clearFilter(); }           // default filter (show all tasks)
-                    case 'u' -> { deliverEvent.set(false); listener.onUndo(); }       // undo
+                    case 'f' -> { deliverEvent.set(false); showFilterForm(); }  // filter and sort
+                    case '/' -> { deliverEvent.set(false); quickSearch(); }    // quick search
+                    case 'x' -> { deliverEvent.set(false); clearFilter(); }   // default filter (show all tasks)
+                    case 'u' -> { deliverEvent.set(false); listener.onUndo(); } // undo
                     case 'c' -> { deliverEvent.set(false); listener.onShowCalendar(); } // calendar
-                    default -> { }                                                    // do nothing for any other key
+                    default -> { }    // do nothing for any other key
                 }
             }
         });
-        // The help is added as a second listener. "listener" is still null here, but that is fine:
-        // it is only used when a key is pressed, and by then the Controller has registered itself.
+        // Help is configured separately because it is a reusable global feature.
+        // Instead of duplicating F1/?/H code in every screen, 'helpOnKey' registers a 
+        // second listener dedicated exclusively to displaying the help dialog.
         helpOnKey(window, "Help - Board", BOARD_HELP, true); // F1, H or ? shows the help of the board screen
     }
 
@@ -203,74 +201,77 @@ public class LanternaView implements View {
         this.listener = listener; // save the listener (the Controller) so we can call it when the user does something
     }
 
-    // board
+    /////// board
 
     @Override // View interface method. The Controller calls it every time the board must be redrawn.
     public void showBoard(List<Task> tasks, Map<Integer, String> subjectNames, LocalDate today, BoardOptions options) {
-        this.subjectNames = subjectNames; // save the subject names, because formatTask() and other methods need them
-        this.today = today; // save the current date for deadlines and for the text on the screen
-        this.options = options; // save the filter and sort, because the search and filter forms start from them
+        this.subjectNames = subjectNames; // save the subject names, because formatTask() and other need them
+        this.today = today; //save the current date for deadlines and for the text on the screen
+        this.options = options; //save the filter and sort
 
-        Status[] statuses = Status.values(); // [TODO, IN_PROGRESS, DONE]: one column for each one
-        columnTasks.clear(); // forget the previous columns (we rebuild the whole screen every time)
+        Status[] statuses = Status.values(); // [todo, in_progress, done]: one column for each one
+        columnTasks.clear(); // forget the previous columns (we rebuild the whole screen every time, so we do not need to keep the old data)
 
-        // A panel with 3 columns (one for each status), one next to the other.
-        // GridLayout places the components in a grid with the given number of columns.
-        Panel board = new Panel(new GridLayout(statuses.length));
+        //A panel with 3 columns (one for each status), one next to the other.
+        //GridLayout places the components in a grid with the given number of columns.
+        Panel board = new Panel(new GridLayout(statuses.length)); //statuses.length = 3, so the grid has 3 columns and as many rows as needed
         for (int i = 0; i < statuses.length; i++) {
-            List<Task> inColumn = new ArrayList<>(); // tasks of the current column
+            List<Task> inColumn = new ArrayList<>(); // tasks of the current column, added in the same order as the rows of the ActionListBox
             ActionListBox list = new ActionListBox(new TerminalSize(28, 12)); // list to choose one task (28 characters wide, 12 lines high)
             for (Task task : tasks) {
-                if (task.getStatus() == statuses[i]) { // does the task belong to this column?
-                    inColumn.add(task); // remember the task, in the same order as its row in the list
+                if (task.getStatus() == statuses[i]) { //if the task belongs to this column, we add it to the list
+                    inColumn.add(task); //remember the task, in the same order as its row in the list
 
-                    // The lambda () -> showDetails(task) is code that runs LATER, when the user presses Enter on this row.
+                    //The lambda () -> showDetails(task) is code that runs later, when the user presses Enter on this row.
                     // It can use "task" because the variable of the for loop is never reassigned.
                     list.addItem(formatTask(task), () -> showDetails(task)); // row text + action to run on Enter
                 }
             }
-            columnTasks.add(inColumn); // the list of this column goes at position i
-            lists[i] = list; // save the ActionListBox of this column (selectedTask() compares against them)
+            columnTasks.add(inColumn); //the list of this column goes at position i
+            lists[i] = list; //save the ActionListBox of this column (selectedTask() compares against them)
 
             // The column is wrapped in a Border with the status label and the number of tasks (example: "To do (5)").
             Border column = list.withBorder(Borders.singleLine(statuses[i].getLabel() + " (" + inColumn.size() + ")"));
             // FILL + true,true = the column grows to use all the free space (horizontal and vertical)
-            column.setLayoutData(GridLayout.createLayoutData(
-                    GridLayout.Alignment.FILL, GridLayout.Alignment.FILL, true, true));
-            board.addComponent(column);
+            column.setLayoutData(GridLayout.createLayoutData(GridLayout.Alignment.FILL, GridLayout.Alignment.FILL, true, true));
+            board.addComponent(column); //the column goes into the grid of the board
         }
 
         // Whole content of the screen, from top to bottom (the default layout of a Panel is vertical)
-        Panel root = new Panel();
+        Panel root = new Panel(); //Panel is a container that can hold several components, one below the other by default
+
+        // The first line shows the date, the sort order and how many tasks are shown out of the total.
         root.addComponent(new Label("Today: " + today.format(LONG_DATE)
                 + "   |   Sort: " + options.sort().getLabel()
                 + "   |   Showing " + tasks.size() + " of " + options.totalTasks() + " tasks"));
+        
         // The active filter is always visible, written in words and in bold (the user never forgets it is on)
         if (options.filter().isActive()) {
-            root.addComponent(new Label("FILTER ON: " + options.filter().describe(subjectNames)
-                    + "   (X: clear)").addStyle(SGR.BOLD));
+            root.addComponent(new Label("FILTER ON: " + options.filter().describe(subjectNames) + "   (X: clear)").addStyle(SGR.BOLD));
         }
         // A filter that hides everything would look like an error, so we explain it
-        if (tasks.isEmpty() && options.totalTasks() > 0) {
+        if (tasks.isEmpty() && options.totalTasks() > 0) { //options.totalTasks() > 0 means that there are tasks, but the filter hides them all
             root.addComponent(new Label("No task matches the current filter. Press F to change it or X to clear it."));
         }
-        board.setLayoutData(LinearLayout.createLayoutData(
-                LinearLayout.Alignment.Fill, LinearLayout.GrowPolicy.CanGrow)); // the board takes the free space
-        root.addComponent(board);
+        // The board is placed in a vertical layout that allows it to grow and take up the available space
+        board.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill, LinearLayout.GrowPolicy.CanGrow)); // the board takes the free space
+        root.addComponent(board); // the board goes below the date and filter lines
+
+        //short instructions for the user, always visible at the bottom of the screen
         root.addComponent(new Label("Enter: details | N: new | E: edit | D: delete | M/B: move task | U: undo"));
         root.addComponent(new Label("/: search | F: filter and sort | X: clear filter | T: Today | S: subjects"));
         root.addComponent(new Label("C: calendar | H or F1: help | Q: quit"));
         statusLine = new Label(" "); // empty line where the messages will appear
         root.addComponent(statusLine);
-        window.setComponent(root);   // we put everything in the window (it replaces the previous content)
+        window.setComponent(root); // we put everything in the window (it replaces the previous content)
 
-        restoreSelection(); // we leave the cursor on the task that was moved / edited
+        restoreSelection(); // after redrawing, we put the cursor on the task that was just moved or edited
     }
 
     @Override // View interface method: shows a short feedback message at the bottom of the screen
     public void showMessage(String message) {
-        statusLine.setText(message);
-        if (subjectsStatus != null) {      // if the Subjects screen is open, we show it there too
+        statusLine.setText(message); //the message is shown at the bottom of the board screen
+        if (subjectsStatus != null) { // if the Subjects screen is open, we show it there too
             subjectsStatus.setText(message);
         }
     }
@@ -279,7 +280,7 @@ public class LanternaView implements View {
     public void run() {
         Screen screen = null; // declared outside the try block so "finally" can also see it
         try {
-            // Real terminal by default; "--swing" opens a separate emulator window.
+            // Real terminal by default but "--swing" opens a separate emulator window when the user runs "java -jar StudyBoard.jar --swing".
             // The factory decides which kind of terminal is created.
             DefaultTerminalFactory factory = new DefaultTerminalFactory();
             factory.setForceTextTerminal(!useSwing); // without --swing: force the real text terminal
@@ -287,23 +288,23 @@ public class LanternaView implements View {
             Terminal terminal = factory.createTerminal();
 
             screen = new TerminalScreen(terminal); // the Screen is a virtual screen: Lanterna draws on it and copies only the changes
-            screen.startScreen();                  // activates the text mode
+            screen.startScreen(); // activates the text mode
             gui = new MultiWindowTextGUI(screen);  // window manager
-            gui.addWindowAndWait(window);          // shows the board and waits until it is closed (Q)
+            gui.addWindowAndWait(window); // shows the board and waits until it is closed (Q)
         } catch (IOException e) {
-            // IOException is a "checked" exception: Java forces us to handle it. We wrap it in an unchecked one.
+            // IOException is a "checked" exception, so we wrap it in an unchecked one.
             throw new UncheckedIOException("Cannot start the text user interface", e);
         } finally {
-            // finally runs ALWAYS, so the terminal goes back to normal even if there was an error
+            // finally runs always, so the terminal goes back to normal even if there was an error
             if (screen != null) {
                 try {
-                    screen.stopScreen();
-                } catch (IOException ignored) { }
+                    screen.stopScreen(); // returns the terminal to normal mode
+                } catch (IOException ignored) { } // we ignore it because there is nothing we can do if the terminal does not return to normal
             }
         }
     }
 
-    // ================================================================== general helpers
+    ///// general helpers
 
     /** One line per task. Priority symbol + "LATE": the colour is never the only signal. */
     private String formatTask(Task task) {
@@ -378,7 +379,7 @@ public class LanternaView implements View {
         MessageDialog.showMessageDialog(gui, "Task details", text);
     }
 
-    // ================================================================== selection and movement
+    ////// selection and movement
 
     /** Task highlighted in the column that has the focus, or null if there is none. */
     private Task selectedTask() {
