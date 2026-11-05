@@ -5,11 +5,8 @@ import java.util.*;   // List, Map
 import studyboard.model.*;
 
 /**
- * INTERFACE = a list of methods that a screen MUST have. There is no code here, only the names.
+ * Interface is a list of methods that a screen must have. There is no code here, only the names.
  * The Controller only knows this interface, not Lanterna.
- * Project 1: LanternaView implements it. Project 2: a graphical interface will implement it.
- * Every method here is something the Controller can ASK the screen to do.
- * (The opposite direction, the user asking the Controller, is in ViewListener.)
  */
 public interface View {
     /** Registers who must be told about the user's actions (the Controller). */
@@ -17,7 +14,6 @@ public interface View {
 
     /**
      * Draws the Kanban board with the tasks to show (already filtered and sorted).
-     * subjectNames: subjectId -> name. options: the current filter and order.
      */
     void showBoard(List<Task> tasks, Map<Integer, String> subjectNames, LocalDate today, BoardOptions options);
 
@@ -36,6 +32,6 @@ public interface View {
     /** Opens the interface and waits until the user quits. */
     void run();
 
-    /** Monthly calendar. It receives ALL the tasks: the board filter does not hide deadlines. */
+    /** Monthly calendar. It receives all the tasks: the board filter does not hide deadlines. */
     void showCalendar(List<Task> tasks, Map<Integer, String> subjectNames, LocalDate today);
 }
