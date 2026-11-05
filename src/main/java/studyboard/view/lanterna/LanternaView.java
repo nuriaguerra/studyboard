@@ -574,16 +574,16 @@ public class LanternaView implements View {
         todayWindow.setHints(List.of(Window.Hint.CENTERED));
 
         Panel panel = new Panel();
-        panel.addComponent(new Label("Today: " + today.format(LONG_DATE)));
+        panel.addComponent(new Label("Today: " + today.format(LONG_DATE))); // the date is always visible at the top
         panel.addComponent(new EmptySpace());
 
-        Panel buttons = new Panel(new LinearLayout(Direction.HORIZONTAL)); // created BEFORE the if: "Open board" is always added
+        Panel buttons = new Panel(new LinearLayout(Direction.HORIZONTAL)); // created before the if, "Open board" is always added
 
-        if (ranked.isEmpty()) {
+        if (ranked.isEmpty()) { //ranked is for today, so if it is empty there is nothing to do today
             panel.addComponent(new Label("Nothing pending. All your tasks are done!"));
         } else {
-            Recommendation next = ranked.get(0); // the best suggestion (a record: next.task(), next.reasons(), next.score())
-            Task task = next.task();
+            Recommendation next = ranked.get(0); // the best suggestion
+            Task task = next.task(); // the task of that suggestion
 
             // The suggestion, in a box with a border
             Panel card = new Panel();
@@ -594,7 +594,7 @@ public class LanternaView implements View {
                     + " | " + task.getPriority().getLabel() + " priority"));
             card.addComponent(new EmptySpace());
             card.addComponent(new Label("Why now?").addStyle(SGR.BOLD));
-            for (String reason : next.reasons()) {            // one line for each reason
+            for (String reason : next.reasons()) { // one line for each reason
                 card.addComponent(new Label("  - " + reason));
             }
             card.addComponent(new Label("Score: " + next.score()));
@@ -604,16 +604,16 @@ public class LanternaView implements View {
             if (ranked.size() > 1) {
                 panel.addComponent(new EmptySpace());
                 panel.addComponent(new Label("Also coming up").addStyle(SGR.BOLD));
-                for (int i = 1; i < Math.min(5, ranked.size()); i++) {
+                for (int i = 1; i < Math.min(5, ranked.size()); i++) { //Math.min(5, ranked.size()) = the smaller of 5 and the number of suggestions, so we do not go out of bounds
                     panel.addComponent(new Label("  " + formatTask(ranked.get(i).task())));
                 }
             }
 
-            // Main action. Both buttons ask the Controller; the View does not change the Model.
+            // Both buttons ask the Controller; the View does not change the Model.
             if (task.getStatus() == Status.TODO) {
-                buttons.addComponent(new Button("Start it", () -> {
+                buttons.addComponent(new Button("Start it", () -> { 
                     pendingSelectId = task.getId(); // the cursor of the board will follow the task
-                    listener.onMoveTask(task.getId(), Status.IN_PROGRESS);
+                    listener.onMoveTask(task.getId(), Status.IN_PROGRESS); // the Controller changes the Model and redraws the board
                     todayWindow.close();
                 }));
             } else {
@@ -629,38 +629,38 @@ public class LanternaView implements View {
         panel.addComponent(new EmptySpace());
         panel.addComponent(buttons);
         panel.addComponent(new Label("Tab: next button | Enter: choose | Esc: go to the board"));
-        todayWindow.setComponent(panel);
+        todayWindow.setComponent(panel); //the panel goes into the window
 
-        closeOnEsc(todayWindow);           // Esc = back to the board
+        closeOnEsc(todayWindow); // Esc = back to the board
         helpOnKey(todayWindow, "Help - Today", TODAY_HELP, true);
         gui.addWindowAndWait(todayWindow); // it waits until the window is closed
     }
 
     ///////Subjects screen
 
-    // The Controller calls showSubjects BOTH to open the screen AND to refresh it after every change.
-    // The first call opens the window and blocks inside addWindowAndWait. While it is blocked, an action
-    // (for example "new subject") makes the Controller call showSubjects AGAIN: in that second call
+    // The Controller calls showSubjects both to open the screen and to refresh it after every change.
+    //The first call opens the window and blocks inside addWindowAndWait. While it is blocked, an action
+    // (example: "new subject") makes the Controller call showSubjects again: in that second call
     // subjectsList is not null, so we only refill the list and return. The first call is still waiting.
     @Override
     public void showSubjects(List<Subject> subjects, Map<Integer, Integer> taskCounts) {
-        this.shownSubjects = new ArrayList<>(subjects); // a copy: the list of the Model may change
-        this.subjectTaskCounts = taskCounts;
+        this.shownSubjects = new ArrayList<>(subjects); // a copy, so the Controller can change the original list without affecting the View
+        this.subjectTaskCounts = taskCounts; // a copy, so the Controller can change the original map without affecting the View
 
-        // It is already open (the Controller refreshes it after every change): we only refill the list
+        // It is already open (the Controller refreshes it after every change)
         if (subjectsList != null) {
             fillSubjectsList();
             return;
         }
 
-        subjectsList = new ActionListBox(new TerminalSize(46, 10));
+        subjectsList = new ActionListBox(new TerminalSize(46, 10)); // list of subjects, 46 characters wide and 10 lines high
         subjectsStatus = new Label(shownSubjects.isEmpty() ? "No subjects yet. Press N to add one." : " ");
         BasicWindow subjectsWindow = new BasicWindow("StudyBoard - Subjects");
         subjectsWindow.setHints(List.of(Window.Hint.CENTERED));
-        fillSubjectsList();
+        fillSubjectsList(); // fill the list with the subjects that were passed by the Controller
 
-        // No buttons: this way the focus NEVER leaves the list and the highlighted subject is always the right one.
-        // (With buttons, going down to them made the selection pass through the last subject.)
+        // No buttons: this way the focus never leaves the list and the highlighted subject is always the right one.
+        //(With buttons, going down to them made the selection pass through the last subject.)
         Panel panel = new Panel();
         panel.addComponent(new Label("Your subjects (number of tasks on the right)"));
         panel.addComponent(subjectsList.withBorder(Borders.singleLine("Subjects")));
@@ -668,12 +668,12 @@ public class LanternaView implements View {
         panel.addComponent(subjectsStatus);
         subjectsWindow.setComponent(panel);
 
-        closeOnEsc(subjectsWindow); // Esc closes
+        closeOnEsc(subjectsWindow); //Esc closes
         helpOnKey(subjectsWindow, "Help - Subjects", SUBJECTS_HELP, true);
 
-        // Letter shortcuts of this window (a window can have several listeners)
+        // The window listens to keys that are not used by the list (Enter, arrow keys, etc. are used by the list)
         subjectsWindow.addWindowListener(new WindowListenerAdapter() {
-            @Override
+            @Override // onInput is called every time a key is pressed while this window is on top
             public void onInput(Window basePane, KeyStroke key, AtomicBoolean deliverEvent) {
                 if (key.getKeyType() != KeyType.Character || key.isCtrlDown() || key.isAltDown()) {
                     return;
@@ -690,7 +690,7 @@ public class LanternaView implements View {
         });
 
         try {
-            gui.addWindowAndWait(subjectsWindow); // it waits until the window is closed
+            gui.addWindowAndWait(subjectsWindow); //it waits until the window is closed
         } finally {
             subjectsList = null;   // "the screen is closed" for showSubjects() and showMessage()
             subjectsStatus = null;
@@ -700,10 +700,10 @@ public class LanternaView implements View {
     /** Refills the list from shownSubjects and leaves the cursor near where it was. */
     private void fillSubjectsList() {
         int previous = subjectsList.getSelectedIndex(); // remember where the cursor was
-        subjectsList.clearItems();
-        for (Subject subject : shownSubjects) {
+        subjectsList.clearItems(); // remove all the items from the list, so we can refill it
+        for (Subject subject : shownSubjects) { // for each subject, we add a row to the list
             int count = subjectTaskCounts.getOrDefault(subject.getId(), 0); // 0 if the subject has no tasks
-            // Enter on an item = renaming it
+
             // %-30s = the name left-aligned in 30 characters, %3d = the number right-aligned in 3 characters
             subjectsList.addItem(String.format("%-30s %3d task(s)", subject.getName(), count),
                     () -> subjectMenu(subject)); // Enter = menu of actions
@@ -717,14 +717,14 @@ public class LanternaView implements View {
     /** Highlighted subject, or null. */
     private Subject selectedSubject() {
         int index = subjectsList.getSelectedIndex();
-        return (index >= 0 && index < shownSubjects.size()) ? shownSubjects.get(index) : null;
+        return (index >= 0 && index < shownSubjects.size()) ? shownSubjects.get(index) : null; //if the index is valid, return the subject at that index, otherwise return null
     }
 
     private void newSubject() {
         // The lambda (name -> { ... }) is the "action" that subjectNameDialog runs when the name is typed
         subjectNameDialog("New subject", "", name -> {
             listener.onAddSubject(name);
-            // The Controller already refreshed the list: we put the cursor on the new (last) subject
+            // The Controller already refreshed the list, so we put the cursor on the new (last) subject
             subjectsList.setSelectedIndex(shownSubjects.size() - 1);
         });
     }
@@ -738,42 +738,41 @@ public class LanternaView implements View {
         renameSubject(subject);
     }
 
-    /** Enter on a subject: a small menu with the possible actions. */
+    /** Enter on a subject, shows a small menu with the possible actions. */
     private void subjectMenu(Subject subject) {
-        // "Builder" pattern: every method returns the same builder, so the calls can be chained one after another
-        new ActionListDialogBuilder()
-                .setTitle(subject.getName())             // title = name of the subject
-                .setDescription("Choose an action")
+        // "Builder" pattern, every method returns the same builder, so the calls can be chained one after another
+        new ActionListDialogBuilder()  // constructor creates a new builder, which is empty at first
+                .setTitle(subject.getName()) // title = name of the subject
+                .setDescription("Choose an action") // description = text below the title
                 .addAction("Rename", () -> renameSubject(subject)) // every option runs its own lambda
-                .addAction("Delete", () -> deleteSubject(subject)) // with THAT subject, not the "selected" one
-                .build()
-                .showDialog(gui);                        // it is shown and it waits
+                .addAction("Delete", () -> deleteSubject(subject)) // with that subject
+                .build() // creates the dialog from the builder
+                .showDialog(gui);// it is shown and it waits
     }
 
     /** Asks for a new name and sends it to the Controller. */
     private void renameSubject(Subject subject) {
-        subjectNameDialog("Rename subject", subject.getName(),
-                name -> listener.onRenameSubject(subject.getId(), name));
+        subjectNameDialog("Rename subject", subject.getName(), name -> listener.onRenameSubject(subject.getId(), name));
+        //.onReanmeSubject() redraws the list, so we do not have to do it here.
     }
 
     /**
      * Asks for a name and runs 'action' with it. If the name is not valid (the Model throws
      * IllegalArgumentException) the message is shown and the question is asked again with
      * the same text, so the user does not have to type everything again.
-     * Consumer<String> = "a function that receives a text and returns nothing": that is why the same
-     * method works for creating AND for renaming, we only pass a different lambda.
      */
     private void subjectNameDialog(String dialogTitle, String initialText, Consumer<String> action) {
         String text = initialText;
         while (true) { // repeats until it works or the user cancels (return leaves the loop)
-            text = TextInputDialog.showDialog(gui, dialogTitle, "Subject name:", text);
-            if (text == null) {        // Cancel or Esc
+            text = TextInputDialog.showDialog(gui, dialogTitle, "Subject name:", text); 
+            // shows the dialog with the given title and text, and returns the text that the user typed (or null if the user pressed Esc or Cancel)
+            if (text == null) {// Cancel or Esc
                 showMessage("Cancelled.");
                 return;
             }
             try {
-                action.accept(text);   // runs what we were given (create or rename)
-                return;                // success
+                action.accept(text); //runs what we were given (create or rename)
+                return; // success
             } catch (IllegalArgumentException e) {
                 MessageDialog.showMessageDialog(gui, "Please check the name", e.getMessage());
             }
@@ -792,56 +791,55 @@ public class LanternaView implements View {
 
     /** Asks for confirmation (saying how many tasks will be lost) and tells the Controller. */
     private void deleteSubject(Subject subject) {
-        int count = subjectTaskCounts.getOrDefault(subject.getId(), 0);
-        String text = (count == 0)
+        int count = subjectTaskCounts.getOrDefault(subject.getId(), 0); //how many tasks have that subject (0 if none)
+        String text = (count == 0) // if no tasks, just ask for confirmation
                 ? "Delete the subject \"" + subject.getName() + "\"?"
-                : "Delete the subject \"" + subject.getName() + "\" and its " + count
-                        + " task(s)?\nThis cannot be undone.";
+                : "Delete the subject \"" + subject.getName() + "\" and its " + count + " task(s)?\nThis cannot be undone.";
         if (confirm("Delete subject", text)) {
-            listener.onDeleteSubject(subject.getId());
+            listener.onDeleteSubject(subject.getId()); // the Controller deletes the subject and redraws the list
         } else {
             showMessage("Delete cancelled.");
         }
     }
 
-    // ================================================================== search and filter
+    /////// search and filter
 
-    /** "/" key: one small dialog. It keeps the other filter settings. */
+    /** "/" key, opens a small dialog. It keeps the other filter settings. */
     private void quickSearch() {
-        String text = TextInputDialog.showDialog(gui, "Search",
-                "Look for (title, notes or subject). Empty = no search:", options.filter().text());
+        // The current text is already in the filter, so we pass it to the dialog. If the user presses Esc or Cancel, we do not change anything.
+        String text = TextInputDialog.showDialog(gui, "Search", "Look for (title, notes or subject). Empty = no search:", options.filter().text());
         if (text == null) { // Cancel or Esc
             showMessage("Search cancelled.");
             return;
         }
-        // withText creates a NEW filter equal to the current one but with the new text (filters are immutable)
+        // withText creates a new filter equal to the current one but with the new text
         listener.onChangeView(options.filter().withText(text), options.sort());
     }
 
-    /** "X" key: removes the filter but keeps the sort order. */
+    /** "X" key, removes the filter but keeps the sort order. */
     private void clearFilter() {
-        if (!options.filter().isActive()) {
+        if (!options.filter().isActive()) { // there is no filter to clear
             showMessage("No filter is active.");
             return;
         }
-        listener.onChangeView(TaskFilter.NONE, options.sort());
+        listener.onChangeView(TaskFilter.NONE, options.sort()); // the Controller redraws the board with no filter
     }
 
-    /** "F" key: the full form. It starts with the current values, so nothing has to be typed again. */
+    /** "F" key, opens the full form. It starts with the current values, so nothing has to be typed again. */
     private void showFilterForm() {
         TaskFilter current = options.filter();
         BasicWindow form = new BasicWindow("Search, filter and sort");
         form.setHints(List.of(Window.Hint.CENTERED));
 
         // Drop-down lists. Position 0 of subject / priority means "no restriction",
-        // so the real subjects and priorities start at position 1 (that is why there is a +1 / -1 below)
+        // so the subjects and priorities start at position 1 (that is why there is a +1 / -1 below)
         List<Integer> subjectIds = new ArrayList<>(subjectNames.keySet());
         List<String> subjectLabels = new ArrayList<>();
-        subjectLabels.add("All subjects");
+        subjectLabels.add("All subjects"); // position 0 = no restriction
         subjectLabels.addAll(subjectNames.values()); // same order as subjectIds (shifted by 1)
         List<String> priorityLabels = new ArrayList<>();
-        priorityLabels.add("Any priority");
-        for (Priority p : Priority.values()) {
+        priorityLabels.add("Any priority"); // position 0 = no restriction
+        for (Priority p : Priority.values()) { // the enum values are not Strings, so we build a list of their labels
             priorityLabels.add(p.getLabel());
         }
         List<String> sortLabels = new ArrayList<>();
@@ -856,27 +854,26 @@ public class LanternaView implements View {
         CheckBox hideDone = new CheckBox("Hide them"); // checkbox
         hideDone.setChecked(current.hideDone());
 
-        if (current.subjectId() != null) {
+        if (current.subjectId() != null) { // if there is a subject restriction, we preselect it in the drop-down list
             int index = subjectIds.indexOf(current.subjectId());
             if (index >= 0) subject.setSelectedIndex(index + 1); // +1 because of "All subjects"
         }
-        if (current.priority() != null) {
+        if (current.priority() != null) { // if there is a priority restriction
             priority.setSelectedIndex(current.priority().ordinal() + 1);
         }
-        sort.setSelectedIndex(options.sort().ordinal());
+        sort.setSelectedIndex(options.sort().ordinal()); // preselect the current sort order
 
         Button apply = new Button("Apply", () -> {
             // Position 0 = "no restriction" = null (an Integer can be null, an int cannot)
-            Integer subjectId = subject.getSelectedIndex() == 0
-                    ? null : subjectIds.get(subject.getSelectedIndex() - 1);
-            Priority chosenPriority = priority.getSelectedIndex() == 0
-                    ? null : Priority.values()[priority.getSelectedIndex() - 1];
-            listener.onChangeView(
-                    new TaskFilter(text.getText(), subjectId, chosenPriority, hideDone.isChecked()),
-                    SortOrder.values()[sort.getSelectedIndex()]);
+            // if the user chooses "All subjects", we send null to the Controller, otherwise we translate the position into a subject id with subjectIds.get(position - 1)
+            Integer subjectId = subject.getSelectedIndex() == 0 ? null : subjectIds.get(subject.getSelectedIndex() - 1);
+            Priority chosenPriority = priority.getSelectedIndex() == 0 ? null : Priority.values()[priority.getSelectedIndex() - 1];
+            // Apply the filter and sort order
+            listener.onChangeView(new TaskFilter(text.getText(), subjectId, chosenPriority, hideDone.isChecked()),
+                    SortOrder.values()[sort.getSelectedIndex()]); // the Controller redraws the board with the new filter and sort order
             form.close();
         });
-        Button clear = new Button("Clear filter", () -> {
+        Button clear = new Button("Clear filter", () -> { // clears the filter but keeps the sort order
             listener.onChangeView(TaskFilter.NONE, SortOrder.values()[sort.getSelectedIndex()]);
             form.close();
         });
@@ -910,47 +907,46 @@ public class LanternaView implements View {
         gui.addWindowAndWait(form);
     }
 
-    // ================================================================== calendar
+    ///////calendar
 
-    @Override // View interface method. It receives ALL the tasks (the board filter does not hide deadlines).
+    @Override // View interface method. It receives all the tasks (the board filter does not hide deadlines).
     public void showCalendar(List<Task> tasks, Map<Integer, String> subjectNames, LocalDate today) {
-        this.subjectNames = subjectNames; // formatTask() uses these two fields
+        this.subjectNames = subjectNames; //formatTask() uses these two fields
         this.today = today;
-        calMonth = YearMonth.from(today); // we start in the current month
+        calMonth = YearMonth.from(today); //we start in the current month
 
         BasicWindow cal = new BasicWindow("StudyBoard - Calendar");
         cal.setHints(List.of(Window.Hint.CENTERED));
-        drawMonth(cal, tasks); // draws the month inside the window
+        drawMonth(cal, tasks); //draws the month inside the window
 
-        closeOnEsc(cal);                                        // Esc goes back to the board
+        closeOnEsc(cal);  // Esc goes back to the board
         helpOnKey(cal, "Help - Calendar", CALENDAR_HELP, true); // H, ? or F1
         // This window has no buttons or text boxes, so nothing uses the arrow keys and they reach onUnhandledInput
-        cal.addWindowListener(new WindowListenerAdapter() {
+
+        cal.addWindowListener(new WindowListenerAdapter() { // the window listens to keys that are not used by any component (arrow keys, T, etc.)
             @Override
             public void onUnhandledInput(Window basePane, KeyStroke key, AtomicBoolean handled) {
                 if (key.getKeyType() == KeyType.ArrowLeft) {
-                    calMonth = calMonth.minusMonths(1);     // previous month
+                    calMonth = calMonth.minusMonths(1); // previous month
                 } else if (key.getKeyType() == KeyType.ArrowRight) {
-                    calMonth = calMonth.plusMonths(1);      // next month
-                } else if (key.getKeyType() == KeyType.Character
-                        && Character.toLowerCase(key.getCharacter()) == 't') {
-                    calMonth = YearMonth.from(today);       // back to today's month
+                    calMonth = calMonth.plusMonths(1); // next month
+                } else if (key.getKeyType() == KeyType.Character && Character.toLowerCase(key.getCharacter()) == 't') {
+                    calMonth = YearMonth.from(today);  // back to today's month
                 } else {
-                    return;                                 // any other key: it is not ours
+                    return; // any other key no action for this window, so it is not handled and can be used by the board
                 }
-                drawMonth(cal, tasks);                      // we redraw with the new month
-                handled.set(true);                          // the key is already used
+                drawMonth(cal, tasks); // we redraw with the new month
+                handled.set(true); // the key is already used
             }
         });
-        gui.addWindowAndWait(cal); // it waits until the window is closed
+        gui.addWindowAndWait(cal); //it waits until the window is closed
     }
 
     /** Builds the content of the window for the month stored in calMonth. It is called again on every month change. */
     private void drawMonth(BasicWindow cal, List<Task> tasks) {
         Panel root = new Panel();
         // Title: "November 2026" in bold. getDisplayName gives the name of the month in English.
-        root.addComponent(new Label(calMonth.getMonth().getDisplayName(
-                java.time.format.TextStyle.FULL, Locale.ENGLISH) + " " + calMonth.getYear())
+        root.addComponent(new Label(calMonth.getMonth().getDisplayName( java.time.format.TextStyle.FULL, Locale.ENGLISH) + " " + calMonth.getYear())
                 .addStyle(SGR.BOLD));
 
         Panel grid = new Panel(new GridLayout(7)); // grid of 7 columns = 7 days of the week
@@ -959,44 +955,42 @@ public class LanternaView implements View {
         }
         // Empty cells before day 1. getValue(): Monday = 1 ... Sunday = 7
         // (if the month starts on Wednesday, value = 3, so we add 2 empty cells: Monday and Tuesday)
-        for (int i = 1; i < calMonth.atDay(1).getDayOfWeek().getValue(); i++) {
+        for (int i = 1; i < calMonth.atDay(1).getDayOfWeek().getValue(); i++) { //for each day of the week before the first day of the month, we add an empty cell
             grid.addComponent(new EmptySpace());
         }
-        for (int day = 1; day <= calMonth.lengthOfMonth(); day++) {
-            LocalDate date = calMonth.atDay(day); // the real date of this day
-            int total = 0, pending = 0;                       // tasks of the day / tasks not finished
+        for (int day = 1; day <= calMonth.lengthOfMonth(); day++) { // for each day of the month, we add a cell with the number and the mark
+            LocalDate date = calMonth.atDay(day); //the real date of this day
+            int total = 0, pending = 0; // tasks of the day / tasks not finished
             for (Task t : tasks) {
                 if (t.getDeadline().equals(date)) {
                     total++;
-                    if (t.getStatus() != Status.DONE) pending++;
+                    if (t.getStatus() != Status.DONE) pending++; // if the task is not done, it is pending
                 }
             }
             String mark = total == 0 ? "  " : (pending > 0 ? "*" : "+") + total; // *2 = pending, +1 = all done
             boolean isToday = date.equals(today);
             // Today goes between brackets: [ 4]. %2d = the number in 2 characters. Every cell is 6 characters wide.
-            grid.addComponent(new Label((isToday ? "[" : " ") + String.format("%2d", day)
-                    + (isToday ? "]" : " ") + mark + (mark.length() == 2 ? "" : " ")));
+            grid.addComponent(new Label((isToday ? "[" : " ") + String.format("%2d", day) + (isToday ? "]" : " ") + mark + (mark.length() == 2 ? "" : " ")));
         }
         root.addComponent(grid);
 
-        // List of the tasks of THIS month, sorted by date. A "stream" is a pipeline: filter keeps the tasks of
-        // this month, sorted orders them, toList() collects the result in a list.
+        // List of the tasks of this month, sorted by date.
+        //.stream() creates a stream of tasks, .filter() keeps only the tasks of this month, .sorted() sorts them by date, and .toList() collects them into a list.
         List<Task> inMonth = tasks.stream()
                 .filter(t -> YearMonth.from(t.getDeadline()).equals(calMonth))
                 .sorted(Comparator.comparing(Task::getDeadline)).toList();
         root.addComponent(new EmptySpace());
-        root.addComponent(new Label(inMonth.isEmpty() ? "No deadlines this month."
-                : "Deadlines this month:").addStyle(SGR.BOLD));
+        root.addComponent(new Label(inMonth.isEmpty() ? "No deadlines this month." : "Deadlines this month:").addStyle(SGR.BOLD));
         for (int i = 0; i < Math.min(8, inMonth.size()); i++) { // maximum 8 lines
             Task t = inMonth.get(i);
             root.addComponent(new Label("  " + formatTask(t)    // we reuse the format of the board
                     + (t.getStatus() == Status.DONE ? " [done]" : "")));
         }
-        if (inMonth.size() > 8) {
+        if (inMonth.size() > 8) { // if there are more than 8 tasks, we show a line that says how many more there are
             root.addComponent(new Label("  ... and " + (inMonth.size() - 8) + " more"));
         }
         root.addComponent(new EmptySpace());
         root.addComponent(new Label("Left/Right: month | T: this month | H: help | Esc: back"));
-        cal.setComponent(root); // replaces the previous content of the window (so the month is redrawn)
+        cal.setComponent(root); //replaces the previous content of the window (so the month is redrawn)
     }
 }
