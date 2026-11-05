@@ -355,18 +355,19 @@ public class LanternaView implements View {
 
     /** Yes/No question (error prevention). "No" goes first: the safe answer is the initial one. */
     private boolean confirm(String title, String text) {
-        // The first button of the list is the one that has the focus, so Enter alone answers "No"
-        MessageDialogButton answer = MessageDialog.showMessageDialog(gui, title, text,
-                MessageDialogButton.No, MessageDialogButton.Yes);
+        // The first button of the list is the one that has the focus when the dialog opens, so we put "No" first to avoid accidental confirmation.
+        MessageDialogButton answer = MessageDialog.showMessageDialog(gui, title, text, MessageDialogButton.No, MessageDialogButton.Yes);
+        //messageDialog.No and messageDialog.Yes are the two buttons of the dialog. The method returns the button that the user pressed.
+
         return answer == MessageDialogButton.Yes; // true only if the user explicitly chose Yes
     }
 
     /** Dialog with all the information of a task (Enter key). */
     private void showDetails(Task task) {
         long days = task.daysUntilDeadline(today); // long, because daysUntilDeadline returns a long
-        // Nested ternary operator: condition ? ifTrue : ifFalse (the second one is inside the "ifFalse" part)
-        String when = days < 0 ? Math.abs(days) + " day(s) overdue"
-                : days == 0 ? "due today" : "due in " + days + " day(s)";
+
+        //condition ? ifTrue : ifFalse (the second one is inside the "ifFalse" part)
+        String when = days < 0 ? Math.abs(days) + " day(s) overdue" : days == 0 ? "due today" : "due in " + days + " day(s)";
         // We build the text piece by piece with +. "\n" is a line break.
         String text = "Title:     " + task.getTitle()
                 + "\nSubject:   " + subjectNames.getOrDefault(task.getSubjectId(), "?")
@@ -382,21 +383,21 @@ public class LanternaView implements View {
 
     /** Task highlighted in the column that has the focus, or null if there is none. */
     private Task selectedTask() {
-        Interactable focused = window.getFocusedInteractable(); // the component that has the focus now
+        Interactable focused = window.getFocusedInteractable(); //getFocusedInteractable() returns an Interactable, which is the interface that ActionListBox implements
         for (int i = 0; i < lists.length; i++) {
-            if (focused == lists[i]) {                           // is it the list of this column? (== compares the same object)
-                int index = lists[i].getSelectedIndex();         // highlighted position
+            if (focused == lists[i]) { //if the focused component is the list of this column
+                int index = lists[i].getSelectedIndex();  // the row that is highlighted in that column
                 if (index >= 0 && index < columnTasks.get(i).size()) { // the index must be inside the list
-                    return columnTasks.get(i).get(index);        // translate "column i, row index" into a Task
+                    return columnTasks.get(i).get(index); // return the task of that row in that column
                 }
             }
         }
-        return null; // the focus is not on a column, or the column is empty
+        return null; //the focus is not on a column, or the column is empty
     }
 
     /** Returns the selected task; if there is none, it warns the user and returns null. */
     private Task selectedTaskOrWarn() {
-        Task task = selectedTask();
+        Task task = selectedTask(); // the task highlighted in the column that has the focus
         if (task == null) {
             showMessage("Select a task first (arrow keys).");
         }
@@ -405,35 +406,34 @@ public class LanternaView implements View {
 
     /** direction +1 = next column, -1 = previous column. It asks the Controller to do the change. */
     private void moveSelectedTask(int direction) {
-        Task task = selectedTaskOrWarn();
+        Task task = selectedTaskOrWarn(); //the task highlighted in the column that has the focus
         if (task == null) return;
-        int target = task.getStatus().ordinal() + direction; // ordinal = position of the enum value (0, 1, 2)
-        Status[] all = Status.values();
+        int target = task.getStatus().ordinal() + direction; // ordinal = position of the enum value (0, 1, 2), direction = +1 or -1, so target = the column where we want to move the task
+        Status[] all = Status.values(); //all the possible statuses (To do, In progress, Done) in the order of their ordinal
         if (target < 0 || target >= all.length) { // there is no column before the first or after the last
             showMessage("The task is already in the " + (direction > 0 ? "last" : "first") + " column.");
             return;
         }
-        // The order matters: first we save the id, then we call the Controller. The Controller redraws
-        // INSIDE that call, and restoreSelection() needs to know the id already.
-        pendingSelectId = task.getId();                  // the cursor will follow the task
+        //first we save the id, then we call the Controller. The Controller redraws inside that call, and restoreSelection() needs to know the id already.
+        pendingSelectId = task.getId(); // the cursor will follow the task
         listener.onMoveTask(task.getId(), all[target]);  // the Controller changes the Model and redraws
     }
 
     /** After redrawing, puts the cursor on the task that was just moved or edited. */
     private void restoreSelection() {
         if (pendingSelectId == null) return; // nothing to restore
-        for (int c = 0; c < columnTasks.size(); c++) {
-            for (int i = 0; i < columnTasks.get(c).size(); i++) {
-                if (columnTasks.get(c).get(i).getId() == pendingSelectId) { // found the task
+        for (int c = 0; c < columnTasks.size(); c++) { // for each column
+            for (int i = 0; i < columnTasks.get(c).size(); i++) { // for each task in that column
+                if (columnTasks.get(c).get(i).getId() == pendingSelectId) { // we found the task id that was just moved or edited
                     window.setFocusedInteractable(lists[c]); // we give the focus to that column
-                    lists[c].setSelectedIndex(i);            // and we highlight the task
+                    lists[c].setSelectedIndex(i); // we highlight the row of that task
                 }
             }
         }
-        pendingSelectId = null; // done: we forget it
+        pendingSelectId = null; // done so we forget it
     }
 
-    // ================================================================== create / edit / delete
+    //////  create / edit / delete
 
     private void editSelectedTask() {
         Task task = selectedTaskOrWarn();
