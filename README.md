@@ -2,7 +2,7 @@
 
 A text mode study planner for the terminal, written in Java with [Lanterna](https://github.com/mabe02/lanterna). This is my Project 1 for Human-Computer Interaction.
 
-I have a few courses running at the same time, and the hard part is never writing a task down. The hard part is deciding what to do first. StudyBoard tries to answer that: it keeps your tasks on a Kanban board and has a "Today" screen that suggests the next task and tells you why.
+I have several courses running at the same time, and the hard part is never writing a task down. The hard part is deciding what to do first. StudyBoard tries to answer that: it keeps your tasks on a Kanban board and has a "Today" screen that suggests the next task and tells you why.
 
 ## What it does
 
@@ -15,6 +15,12 @@ I have a few courses running at the same time, and the hard part is never writin
 - **Context help** on every screen (`H` or `F1`).
 - **Automatic saving.** There is no save button. Every change is written to disk.
 
+## Requirements
+
+- Java 21 or newer
+- Maven (only if you want to build it yourself)
+- A terminal of at least about 80x24 characters
+
 ## Build and run
 
 ```bash
@@ -22,7 +28,7 @@ mvn clean package -DskipTests
 java -jar target/studyboard.jar
 ```
 
-If you prefer a separate window instead of the terminal (or your terminal gives problems with some keys), run:
+If you prefer a separate window instead of the terminal (or your terminal captures some keys), run:
 
 ```bash
 java -jar target/studyboard.jar --swing
@@ -31,8 +37,6 @@ java -jar target/studyboard.jar --swing
 The first time you start it, it loads some example data so the board is not empty.
 
 ## Keys
-
-**Board**
 
 | Key | Action |
 |---|---|
@@ -64,7 +68,7 @@ Each pending task gets points and the highest score wins:
 | Quick task (1 h or less) | +5 |
 | Already in progress | +5 |
 
-I wanted something simple that I could explain and change easily, and the screen always shows which rules gave the points, so the app suggests but never decides for you.
+I wanted something simple that I could explain and change easily. The screen always shows which rules gave the points, so the app suggests but never decides for you.
 
 ## Project structure
 
@@ -88,27 +92,34 @@ src/main/java/studyboard/
     └── Controller.java        Changes the model and tells the view what to draw
 ```
 
-A few rules I tried to keep:
+Rules I tried to keep:
 
 - The **model** knows nothing about the other two parts.
 - The **controller** only knows the `View` interface, never Lanterna.
 - The **view** never changes data. It only reports what the user wants through `ViewListener`, and the controller decides what to do.
 
-This means a graphical interface only needs a new class that implements `View`.
+So a graphical interface only needs a new class that implements `View`.
 
-## Design decisions
+## Usability: Nielsen's 10 heuristics
 
-These are the usability choices I made and why.
+[Jakob Nielsen's heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/) are ten general rules for judging whether an interface is easy to use. I used them as a checklist while designing the app. This table shows where each one can be seen.
 
-- **The user always knows what is going on.** The top bar shows the date, the sorting and "Showing X of Y tasks". An active filter is written in bold. Every action ends with a message at the bottom.
-- **Mistakes are hard to make.** Deleting asks for confirmation and the safe answer ("No") is the default one. Deleting a subject says how many tasks will disappear. The form checks dates strictly, so `31.02.2026` is rejected, and the form stays open so you can fix it.
-- **Nothing is lost.** Changes are saved automatically and Undo covers the last 20. If the data file is damaged, the app keeps a copy of it and starts with example data instead of crashing.
-- **Consistent keys.** `Esc` goes back and `H` shows help on every screen, and `N / E / D` mean the same thing for tasks and subjects.
-- **Shortcuts for experienced users, visible options for beginners.** `/` finds a task in two key presses, while the filter form shows every option on screen.
-- **Colour is never the only signal.** Priority has symbols (`!` and `!!`), late tasks say `LATE`, today is in brackets in the calendar and days with deadlines are marked with `*` or `+`.
-- **Clear error messages.** For example: "The deadline must be a real date written as DD.MM.YYYY".
+| # | Heuristic | What it means | Where it appears in StudyBoard |
+|---|---|---|---|
+| 1 | Visibility of system status | The user should always know what is happening | The top bar shows the date, the sorting and "Showing X of Y tasks". An active filter appears in bold as `FILTER ON: ...`. Every action ends with a message at the bottom, and columns show how many tasks they hold. |
+| 2 | Match between system and the real world | Use the user's language and familiar ideas | A Kanban board (To do / In progress / Done), words like deadline and subject, dates written as DD.MM.YYYY. |
+| 3 | User control and freedom | Let the user undo and leave easily | `U` undoes the last 20 changes, `Esc` closes any window, forms have a Cancel button and `X` clears the filter. |
+| 4 | Consistency and standards | Same things work the same way everywhere | `Esc` always goes back, `H` or `F1` always opens help, and `N / E / D` mean new / edit / delete for both tasks and subjects. |
+| 5 | Error prevention | Stop mistakes before they happen | Deleting asks for confirmation and "No" is the default answer. Deleting a subject says how many tasks will be lost. Dates are checked strictly (`31.02.2026` is rejected). If a filter hides a task you just created, the app says so. |
+| 6 | Recognition rather than recall | Show options instead of making people remember them | Key hints are printed on every screen, the forms use drop-down lists, and each screen has its own help. |
+| 7 | Flexibility and efficiency of use | Shortcuts for experts, a clear path for beginners | `/` finds a task in two key presses, while the filter form (`F`) shows every option. Single letter shortcuts for the common actions. |
+| 8 | Aesthetic and minimalist design | Do not show more than needed | Each screen has only what it needs: three columns, a short header and one line of messages. |
+| 9 | Help users recognize, diagnose and recover from errors | Clear messages that suggest a fix | "The deadline must be a real date written as DD.MM.YYYY, for example 12.11.2026". The form stays open after an error so nothing has to be retyped. A damaged data file is kept as a backup and the app starts with example data. |
+| 10 | Help and documentation | Easy to find, short and useful | Context help on each screen (`H` or `F1`), explaining the keys of that screen only, plus a welcome message the first time. |
 
-One thing I changed along the way: the subjects screen used to have buttons, but moving down to them with the arrows selected the last subject by accident, so the wrong one could be deleted. I removed the buttons and now the list always keeps the focus.
+Colour is never the only signal: priority has symbols (`!` and `!!`), late tasks say `LATE`, today is in brackets in the calendar and days with deadlines are marked with `*` or `+`.
+
+One thing I changed along the way: the subjects screen used to have buttons, but moving down to them with the arrows selected the last subject by accident, so the wrong one could be deleted. I removed the buttons, and now the list always keeps the focus.
 
 ## Where the data is stored
 
@@ -116,7 +127,8 @@ Everything is saved in a plain text file at `~/.studyboard/data.txt`. If you del
 
 ## Limitations and ideas for later
 
-- Deleting a subject deletes its tasks too (you can undo it). Archiving subjects would be a gentler option.
+- Deleting a subject deletes its tasks too (it can be undone). Archiving subjects would be gentler.
+- There is no high contrast theme yet.
 - I would like to add a focus timer and a weekly workload view.
 - Project 2 will reuse the model and the controller with a graphical view.
 
