@@ -5,28 +5,27 @@ import java.time.temporal.*; //ChronoUnit (used to count days between two dates)
 
 /** One study task, for example "Write HCI report". Only data + logic, nothing about the screen. */
 public class Task {
-    private final int id;            // unique number, it never changes
+    private final int id; // unique number, it never changes
     private String title;
     private String notes;
-    private int subjectId;           // links to Subject.getId() (we store the id, not the object)
-    private Status status;           // the Kanban column the task is in
+    private int subjectId; // links to Subject.getId() (we store the id, not the object)
+    private Status status;  // the Kanban column the task is in
     private Priority priority;
-    private LocalDate deadline;      // LocalDate = a date without a time of day
-    private double estimatedHours;   // how many hours we expect the task to take
+    private LocalDate deadline; // LocalDate = a date without a time of day
+    private double estimatedHours; // how many hours we expect the task to take
 
-    public Task(int id, String title, int subjectId, Priority priority,
-                LocalDate deadline, double estimatedHours) {
+    public Task(int id, String title, int subjectId, Priority priority, LocalDate deadline, double estimatedHours) {
         this.id = id;
-        setTitle(title);                   // the setters validate the data (they throw an error if it is wrong)
+        setTitle(title);  // the setters validate the data (they throw an error if it is wrong)
         setPriority(priority);
         setDeadline(deadline);
         setEstimatedHours(estimatedHours);
         this.subjectId = subjectId;
-        this.notes = "";                   // no notes at the beginning
-        this.status = Status.TODO;         // every new task starts in "To do"
+        this.notes = ""; // no notes at the beginning
+        this.status = Status.TODO; // every new task starts in "To do"
     }
 
-    // ---- Logic (no screen code here) ----
+    ////Logic (no screen code here)
 
     /** Days from 'today' until the deadline. A negative number means it is already late. */
     public long daysUntilDeadline(LocalDate today) {
@@ -34,12 +33,12 @@ public class Task {
         return ChronoUnit.DAYS.between(today, deadline);
     }
 
-    /** Overdue = NOT finished AND the date has passed. A finished task is never overdue. */
+    /** Overdue = not finished and the date has passed. A finished task is never overdue. */
     public boolean isOverdue(LocalDate today) {
         return status != Status.DONE && daysUntilDeadline(today) < 0;
     }
 
-    // ---- Getters (read the data) ----
+    /////Getters
     public int getId() { return id; }
     public String getTitle() { return title; }
     public String getNotes() { return notes; }
@@ -49,7 +48,7 @@ public class Task {
     public LocalDate getDeadline() { return deadline; }
     public double getEstimatedHours() { return estimatedHours; }
 
-    // ---- Setters (change the data, with validation: they throw an error if the value is bad) ----
+    /////Setters (they validate the data, throwing an error if it is wrong)
     public void setTitle(String title) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("Task title cannot be empty.");
@@ -58,12 +57,12 @@ public class Task {
     }
 
     public void setNotes(String notes) {
-        this.notes = (notes == null) ? "" : notes; // if it is null we use an empty text instead
+        this.notes = (notes == null) ? "" : notes; //if it is null we use an empty text instead
     }
 
     public void setSubjectId(int subjectId) { this.subjectId = subjectId; }
 
-    public void setStatus(Status status) {
+    public void setStatus(Status status) { // we do not allow null, because every task must be in a column
         if (status == null) throw new IllegalArgumentException("Status cannot be null.");
         this.status = status;
     }
