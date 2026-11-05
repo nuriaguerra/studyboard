@@ -437,7 +437,7 @@ public class LanternaView implements View {
 
     private void editSelectedTask() {
         Task task = selectedTaskOrWarn();
-        if (task != null) showTaskForm(task);
+        if (task != null) showTaskForm(task); //when the task is selected, we open the form with that task (the form knows it is editing because the parameter is not null)
     }
 
     private void deleteSelectedTask() {
@@ -445,45 +445,48 @@ public class LanternaView implements View {
         if (task == null) return;
         // \" writes a quote character inside a String
         if (confirm("Delete task", "Delete \"" + task.getTitle() + "\"?")) {
-            listener.onDeleteTask(task.getId()); // the View never deletes anything, it only asks the Controller
+            listener.onDeleteTask(task.getId()); // the Controller deletes the task and redraws the board
         } else {
             showMessage("Delete cancelled.");
         }
     }
 
-    /** Form. existing == null means "new task", otherwise "edit this task". */
+    //////  Form. existing == null means "new task", otherwise "edit this task".
     private void showTaskForm(Task existing) {
         if (subjectNames.isEmpty()) { // a task needs a subject, so without subjects there is nothing to choose
             showMessage("There are no subjects yet. Press S to create one.");
             return;
         }
-        boolean editing = existing != null;
-        BasicWindow form = new BasicWindow(editing ? "Edit task" : "New task");
+        boolean editing = existing != null; // if we are editing, the existing task is not null
+        BasicWindow form = new BasicWindow(editing ? "Edit task" : "New task"); // the title of the window depends on whether we are editing or creating a new task
         form.setHints(List.of(Window.Hint.CENTERED)); // centered window
 
-        // The two lists have the SAME order (the map keeps the insertion order), so the position that the user
+        // The two lists have the same order (the map keeps the insertion order), so the position that the user
         // chooses in the drop-down list can be translated into a subject id with subjectIds.get(position)
-        List<Integer> subjectIds = new ArrayList<>(subjectNames.keySet());
-        List<String> subjectLabels = new ArrayList<>(subjectNames.values());
-        List<String> priorityLabels = new ArrayList<>();
+        List<Integer> subjectIds = new ArrayList<>(subjectNames.keySet()); //list of the subject ids
+        List<String> subjectLabels = new ArrayList<>(subjectNames.values()); //list of the subject names
+        List<String> priorityLabels = new ArrayList<>(); //list of the priority labels (the enum values are not Strings, so we build a list of their labels)
         for (Priority p : Priority.values()) {
-            priorityLabels.add(p.getLabel());
+            priorityLabels.add(p.getLabel()); // the label of each priority (low, medium, high)
         }
 
         // Input fields, already filled when we are editing.
-        // TextBox = a one line text field. TerminalSize(40, 1) = 40 characters wide and 1 line high.
-        TextBox title = new TextBox(new TerminalSize(40, 1), editing ? existing.getTitle() : "");
-        ComboBox<String> subject = new ComboBox<String>(subjectLabels);   // drop-down list
-        ComboBox<String> priority = new ComboBox<String>(priorityLabels);
+        // TerminalSize(40, 1) = 40 characters wide and 1 line high.
+        TextBox title = new TextBox(new TerminalSize(40, 1), editing ? existing.getTitle() : ""); //if we are editing, we fill the field with the existing title, otherwise it is empty
+        ComboBox<String> subject = new ComboBox<String>(subjectLabels);   // drop-down list subjects. The user can choose one of the subjects, and we will translate it into the subject id with subjectIds.get(selectedIndex)
+        ComboBox<String> priority = new ComboBox<String>(priorityLabels); // drop-down list priorities
         LocalDate defaultDate = editing ? existing.getDeadline() : today.plusDays(7); // new tasks start with "in a week"
+
         TextBox date = new TextBox(new TerminalSize(14, 1), defaultDate.format(LONG_DATE));
-        TextBox hours = new TextBox(new TerminalSize(8, 1),
-                editing ? String.valueOf(existing.getEstimatedHours()) : "1.0");
+        TextBox hours = new TextBox(new TerminalSize(8, 1), editing ? String.valueOf(existing.getEstimatedHours()) : "1.0");
         TextBox notes = new TextBox(new TerminalSize(40, 1), editing ? existing.getNotes() : "");
 
+        // If we are editing an existing task, we preselect the values in the input fields.
         if (editing) { // we preselect the values of the task
             int subjectIndex = subjectIds.indexOf(existing.getSubjectId()); // position of the id in the list (-1 if missing)
-            if (subjectIndex >= 0) subject.setSelectedIndex(subjectIndex);
+            if (subjectIndex >= 0) { // the subject still exists
+                subject.setSelectedIndex(subjectIndex); // preselect the subject in the drop-down list
+            }
             priority.setSelectedIndex(existing.getPriority().ordinal());
         } else {
             priority.setSelectedIndex(Priority.MEDIUM.ordinal()); // default: medium
@@ -493,16 +496,14 @@ public class LanternaView implements View {
         // The lambda can use title, subject, etc. because those variables are never reassigned.
         Button save = new Button("Save", () -> {
             try {
-                // Creating TaskData VALIDATES everything: if something is wrong it throws IllegalArgumentException
-                TaskData data = new TaskData(title.getText(), notes.getText(),
-                        subjectIds.get(subject.getSelectedIndex()),
-                        Priority.values()[priority.getSelectedIndex()],
-                        parseDate(date.getText()), parseHours(hours.getText()));
+                //Creating TaskData validates everything: if something is wrong it throws IllegalArgumentException
+                TaskData data = new TaskData(title.getText(), notes.getText(), subjectIds.get(subject.getSelectedIndex()),
+                        Priority.values()[priority.getSelectedIndex()], parseDate(date.getText()), parseHours(hours.getText()));
                 if (editing) {
-                    pendingSelectId = existing.getId(); // the cursor stays on the edited task
-                    listener.onEditTask(existing.getId(), data);
+                    pendingSelectId = existing.getId(); // the cursor will follow the task after redrawing
+                    listener.onEditTask(existing.getId(), data); // the Controller updates the task and redraws the board
                 } else {
-                    listener.onAddTask(data);
+                    listener.onAddTask(data); // the Controller adds the task and redraws the board
                 }
                 form.close();
             } catch (IllegalArgumentException e) {
@@ -510,14 +511,15 @@ public class LanternaView implements View {
                 MessageDialog.showMessageDialog(gui, "Please check the form", e.getMessage());
             }
         });
-        Button cancel = new Button("Cancel", form::close); // form::close = "call form.close()" (a method reference)
+        Button cancel = new Button("Cancel", form::close); // form::close is a method reference, equivalent to () -> form.close()
 
         Panel buttons = new Panel(new LinearLayout(Direction.HORIZONTAL)); // buttons in a row
         buttons.addComponent(save);
         buttons.addComponent(cancel);
         // The last two numbers (2, 1) mean: this panel uses 2 columns and 1 row of the grid
         buttons.setLayoutData(GridLayout.createLayoutData(
-                GridLayout.Alignment.END, GridLayout.Alignment.CENTER, false, false, 2, 1));
+            GridLayout.Alignment.END, GridLayout.Alignment.CENTER, false, false, 2, 1));
+        // The grid layout of the form has 2 columns: the first one for the labels, the second one for the input fields.
 
         Panel panel = new Panel(new GridLayout(2)); // grid of 2 columns: label | field
         panel.addComponent(new Label("Title:"));
@@ -537,9 +539,9 @@ public class LanternaView implements View {
         panel.addComponent(buttons);
         form.setComponent(panel);
 
-        closeOnEsc(form);           // Esc cancels
-        helpOnKey(form, "Help - Task form", TASK_FORM_HELP, false); // only F1 (there are text boxes here)
-        gui.addWindowAndWait(form); // it stays here until the form is closed
+        closeOnEsc(form); // Esc cancels
+        helpOnKey(form, "Help - Task form", TASK_FORM_HELP, false); // F1, H or ? shows the help of the form
+        gui.addWindowAndWait(form); //it stays here until the form is closed
     }
 
     /** Text -> date, with a message that says exactly what is wrong. */
@@ -547,9 +549,8 @@ public class LanternaView implements View {
         try {
             return LocalDate.parse(text.trim(), DATE_INPUT); // STRICT formatter: 31.02.2026 fails
         } catch (DateTimeParseException e) {
-            // We throw our own exception with a friendly message instead of the technical one
-            throw new IllegalArgumentException("The deadline must be a real date written as DD.MM.YYYY, for example "
-                    + today.plusDays(7).format(LONG_DATE) + ".");
+            // We throw our own exception with our message
+            throw new IllegalArgumentException("The deadline must be a real date written as DD.MM.YYYY, for example " + today.plusDays(7).format(LONG_DATE) + ".");
         }
     }
 
@@ -562,7 +563,7 @@ public class LanternaView implements View {
         }
     }
 
-    // ================================================================== Today screen
+    ///////Today screen
 
     @Override // View interface method. 'ranked' is already sorted by the Controller: the first one is the best suggestion.
     public void showToday(List<Recommendation> ranked, Map<Integer, String> subjectNames, LocalDate today) {
@@ -635,7 +636,7 @@ public class LanternaView implements View {
         gui.addWindowAndWait(todayWindow); // it waits until the window is closed
     }
 
-    // ================================================================== Subjects screen
+    ///////Subjects screen
 
     // The Controller calls showSubjects BOTH to open the screen AND to refresh it after every change.
     // The first call opens the window and blocks inside addWindowAndWait. While it is blocked, an action
