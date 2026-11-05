@@ -4,37 +4,40 @@ import java.time.*; // LocalDate
 import java.util.*; // List, ArrayList, Comparator
 
 /**
- * Decide "¿qué hago ahora?". Lógica pura: sin pantalla ni ficheros.
- * Es una tabla de puntos fácil de explicar: más puntos = hazla antes.
+ * Decides "what should I do next?". Pure logic: no screen code and no files.
+ * It is a table of points that is easy to explain and easy to change: more points = do it earlier.
+ * Every rule that gives points also writes a "reason", and those reasons are what the user
+ * reads under "Why now?" on the Today screen.
  */
 public final class TaskScorer {
-    private TaskScorer() { } // clase de utilidad: nadie crea objetos de ella
+    private TaskScorer() { } // utility class: nobody creates objects of it, we only call TaskScorer.rank(...)
 
-    /** Tareas pendientes (no Done), la mejor sugerencia primero. */
+    /** Pending tasks (not Done), best suggestion first. */
     public static List<Recommendation> rank(List<Task> tasks, LocalDate today) {
         List<Recommendation> result = new ArrayList<>();
         for (Task task : tasks) {
-            if (task.getStatus() != Status.DONE) { // las terminadas nunca se sugieren
+            if (task.getStatus() != Status.DONE) { // finished tasks are never suggested
                 result.add(score(task, today));
             }
         }
-        // Más puntos primero. Empate: fecha más cercana; después id más bajo.
+        // Highest score first (reversed). Ties: earlier deadline first, then lower id (stable order).
+        // "r -> r.task().getDeadline()" is a lambda: "given a recommendation r, take the deadline of its task".
         result.sort(Comparator.comparingInt(Recommendation::score).reversed()
                 .thenComparing(r -> r.task().getDeadline())
                 .thenComparingInt(r -> r.task().getId()));
         return result;
     }
 
-    /** Da puntos a UNA tarea y apunta un motivo por cada regla que se aplicó. */
+    /** Gives points to ONE task and records a reason for every rule that applied. */
     public static Recommendation score(Task task, LocalDate today) {
-        List<String> reasons = new ArrayList<>(); // motivos que verá el usuario
+        List<String> reasons = new ArrayList<>(); // reasons the user will see
         int points = 0;
-        long days = task.daysUntilDeadline(today); // negativo = atrasada
+        long days = task.daysUntilDeadline(today); // negative = overdue
 
-        // REGLA 1: cercanía de la fecha límite (siempre se aplica)
+        // RULE 1: how close is the deadline? (always applies, so there is always at least one reason)
         if (days < 0) {
             points += 60;
-            reasons.add("Overdue by " + daysText(-days));
+            reasons.add("Overdue by " + daysText(-days)); // -days turns -3 into 3
         } else if (days == 0) {
             points += 55;
             reasons.add("Due today");
@@ -46,14 +49,14 @@ public final class TaskScorer {
             reasons.add(days == 1 ? "Due tomorrow" : "Due in " + daysText(days));
         }
 
-        // REGLA 2: prioridad elegida por el usuario
+        // RULE 2: priority chosen by the user. The arrow switch runs only the matching branch.
         switch (task.getPriority()) {
             case HIGH -> { points += 30; reasons.add("High priority"); }
             case MEDIUM -> { points += 15; reasons.add("Medium priority"); }
-            case LOW -> { } // sin puntos ni motivo
+            case LOW -> { } // no points and nothing to explain
         }
 
-        // REGLA 3: esfuerzo. Una tarea grande con fecha cercana hay que empezarla ya.
+        // RULE 3: effort. A big task with a close deadline has to be started early.
         double hours = task.getEstimatedHours();
         if (hours >= 4 && days <= 7) {
             points += 10;
@@ -63,16 +66,16 @@ public final class TaskScorer {
             reasons.add("Quick win (about 1 hour or less)");
         }
 
-        // REGLA 4: terminar lo empezado es mejor que empezar algo nuevo
+        // RULE 4: finishing what you started is better than starting something new
         if (task.getStatus() == Status.IN_PROGRESS) {
             points += 5;
             reasons.add("Already in progress");
         }
 
-        return new Recommendation(task, points, reasons);
+        return new Recommendation(task, points, reasons); // task + total points + list of reasons
     }
 
-    /** "1 day" / "3 days" (singular o plural). */
+    /** "1 day" / "3 days" (singular or plural). */
     private static String daysText(long n) {
         return n + (n == 1 ? " day" : " days");
     }

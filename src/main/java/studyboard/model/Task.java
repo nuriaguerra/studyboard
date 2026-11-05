@@ -1,44 +1,45 @@
 package studyboard.model;
 
 import java.time.*;          // LocalDate
-import java.time.temporal.*; // ChronoUnit (para contar días)
+import java.time.temporal.*; // ChronoUnit (used to count days between two dates)
 
-/** Una tarea de estudio, por ejemplo "Write HCI report". Solo datos + lógica, sin pantalla. */
+/** One study task, for example "Write HCI report". Only data + logic, nothing about the screen. */
 public class Task {
-    private final int id;            // único
+    private final int id;            // unique number, it never changes
     private String title;
     private String notes;
-    private int subjectId;           // enlaza con Subject.getId()
-    private Status status;           // columna del Kanban
+    private int subjectId;           // links to Subject.getId() (we store the id, not the object)
+    private Status status;           // the Kanban column the task is in
     private Priority priority;
-    private LocalDate deadline;      // LocalDate = fecha sin hora
-    private double estimatedHours;   // horas que calculamos que llevará
+    private LocalDate deadline;      // LocalDate = a date without a time of day
+    private double estimatedHours;   // how many hours we expect the task to take
 
     public Task(int id, String title, int subjectId, Priority priority,
                 LocalDate deadline, double estimatedHours) {
         this.id = id;
-        setTitle(title);                   // los setters validan los datos
+        setTitle(title);                   // the setters validate the data (they throw an error if it is wrong)
         setPriority(priority);
         setDeadline(deadline);
         setEstimatedHours(estimatedHours);
         this.subjectId = subjectId;
-        this.notes = "";                   // sin notas al principio
-        this.status = Status.TODO;         // toda tarea nueva empieza en "To do"
+        this.notes = "";                   // no notes at the beginning
+        this.status = Status.TODO;         // every new task starts in "To do"
     }
 
-    // ---- Lógica (sin pantalla) ----
+    // ---- Logic (no screen code here) ----
 
-    /** Días desde 'today' hasta la fecha límite. Negativo = ya pasó. */
+    /** Days from 'today' until the deadline. A negative number means it is already late. */
     public long daysUntilDeadline(LocalDate today) {
+        // ChronoUnit.DAYS.between(a, b) counts the whole days that pass from a to b
         return ChronoUnit.DAYS.between(today, deadline);
     }
 
-    /** Atrasada = no terminada Y fecha ya pasada. */
+    /** Overdue = NOT finished AND the date has passed. A finished task is never overdue. */
     public boolean isOverdue(LocalDate today) {
         return status != Status.DONE && daysUntilDeadline(today) < 0;
     }
 
-    // ---- Getters (leer) ----
+    // ---- Getters (read the data) ----
     public int getId() { return id; }
     public String getTitle() { return title; }
     public String getNotes() { return notes; }
@@ -48,16 +49,16 @@ public class Task {
     public LocalDate getDeadline() { return deadline; }
     public double getEstimatedHours() { return estimatedHours; }
 
-    // ---- Setters (cambiar, con validación: lanzan error si el dato es malo) ----
+    // ---- Setters (change the data, with validation: they throw an error if the value is bad) ----
     public void setTitle(String title) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("Task title cannot be empty.");
         }
-        this.title = title.trim();
+        this.title = title.trim(); // remove the spaces around the title
     }
 
     public void setNotes(String notes) {
-        this.notes = (notes == null) ? "" : notes; // si es null, lo cambiamos por texto vacío
+        this.notes = (notes == null) ? "" : notes; // if it is null we use an empty text instead
     }
 
     public void setSubjectId(int subjectId) { this.subjectId = subjectId; }
@@ -83,7 +84,7 @@ public class Task {
     }
 
     @Override
-    public String toString() {
+    public String toString() { // text version of the task, handy for debugging
         return "[" + status.getLabel() + "] " + title + " (due " + deadline + ")";
     }
 }

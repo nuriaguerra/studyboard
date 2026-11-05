@@ -5,35 +5,37 @@ import java.util.*;   // List, Map
 import studyboard.model.*;
 
 /**
- * INTERFAZ = lista de métodos que una pantalla DEBE tener. Aquí no hay código, solo nombres.
- * El Controller solo conoce esta interfaz, no Lanterna.
- * Proyecto 1: la implementa LanternaView. Proyecto 2: la implementará una GUI.
+ * INTERFACE = a list of methods that a screen MUST have. There is no code here, only the names.
+ * The Controller only knows this interface, not Lanterna.
+ * Project 1: LanternaView implements it. Project 2: a graphical interface will implement it.
+ * Every method here is something the Controller can ASK the screen to do.
+ * (The opposite direction, the user asking the Controller, is in ViewListener.)
  */
 public interface View {
-    /** Registra quién debe enterarse de lo que hace el usuario (el Controller). */
+    /** Registers who must be told about the user's actions (the Controller). */
     void setListener(ViewListener listener);
 
     /**
-     * Dibuja el tablero Kanban con las tareas ya filtradas y ordenadas.
-     * subjectNames: idAsignatura -> nombre. options: filtro y orden actuales.
+     * Draws the Kanban board with the tasks to show (already filtered and sorted).
+     * subjectNames: subjectId -> name. options: the current filter and order.
      */
     void showBoard(List<Task> tasks, Map<Integer, String> subjectNames, LocalDate today, BoardOptions options);
 
-    /** Pantalla Today. 'ranked' viene ordenada: el primero es la sugerencia. */
+    /** Shows the Today screen. 'ranked' comes sorted: the first item is the suggestion. */
     void showToday(List<Recommendation> ranked, Map<Integer, String> subjectNames, LocalDate today);
 
     /**
-     * Pantalla de asignaturas. taskCounts: idAsignatura -> nº de tareas.
-     * Si ya está abierta, solo refresca la lista y vuelve enseguida.
+     * Shows the Subjects screen. taskCounts: subjectId -> number of tasks.
+     * If the screen is already open, it only refreshes the list and returns immediately.
      */
     void showSubjects(List<Subject> subjects, Map<Integer, Integer> taskCounts);
 
-    /** Línea corta de feedback para el usuario ("visibilidad del estado del sistema"). */
+    /** Short feedback line for the user ("visibility of system status"). */
     void showMessage(String message);
 
-    /** Abre la interfaz y se queda esperando hasta que el usuario sale. */
+    /** Opens the interface and waits until the user quits. */
     void run();
 
-    /** Calendario mensual. Recibe TODAS las tareas: el filtro del tablero no oculta fechas límite. */
+    /** Monthly calendar. It receives ALL the tasks: the board filter does not hide deadlines. */
     void showCalendar(List<Task> tasks, Map<Integer, String> subjectNames, LocalDate today);
 }

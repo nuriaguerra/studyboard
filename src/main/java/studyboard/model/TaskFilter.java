@@ -3,54 +3,59 @@ package studyboard.model;
 import java.util.*; // List, ArrayList, Locale, Map
 
 /**
- * Lo que el usuario quiere ver en el tablero. null / vacío / false = "sin restricción".
- * Es un record: inmutable. Para cambiar el filtro se crea uno NUEVO.
+ * What the user wants to see on the board. null / empty / false means "no restriction".
+ * It is a record, so it is immutable: a filter is never modified, a NEW one is created instead.
+ * Because of that, the same filter object can be shared safely between the Controller and the View.
  */
 public record TaskFilter(String text, Integer subjectId, Priority priority, boolean hideDone) {
-    // Integer (con mayúscula) puede ser null; int no. Aquí null = "todas las asignaturas".
+    // Integer (with capital I) can be null, a normal int cannot. Here null = "all subjects".
 
-    /** El filtro que deja pasar todo. static final = una sola copia compartida. */
+    /** The filter that lets everything through. static final = one single shared copy for the whole program. */
     public static final TaskFilter NONE = new TaskFilter("", null, null, false);
 
-    /** Constructor compacto: limpia el texto al crear el filtro. */
+    /** Compact constructor: it runs on creation and cleans the search text. */
     public TaskFilter {
-        text = (text == null) ? "" : text.trim();
+        text = (text == null) ? "" : text.trim(); // null becomes "" and the extra spaces are removed
     }
 
-    /** ¿Hay alguna restricción puesta? */
+    /** True if at least one restriction is set (that is what the red "FILTER ON" line depends on). */
     public boolean isActive() {
         return !text.isEmpty() || subjectId != null || priority != null || hideDone;
     }
 
-    /** Una tarea se muestra solo si cumple TODAS las condiciones puestas. */
+    /**
+     * A task is shown only if it passes ALL the conditions that are set.
+     * Each "if ... return false" is a test the task fails; if it survives all of them, it is shown.
+     * subjectNames is needed because the text search also looks inside the NAME of the subject.
+     */
     public boolean matches(Task task, Map<Integer, String> subjectNames) {
-        if (hideDone && task.getStatus() == Status.DONE) return false;               // ocultar terminadas
-        if (subjectId != null && !subjectId.equals(task.getSubjectId())) return false; // otra asignatura
-        if (priority != null && task.getPriority() != priority) return false;        // otra prioridad
+        if (hideDone && task.getStatus() == Status.DONE) return false;               // hide finished tasks
+        if (subjectId != null && !subjectId.equals(task.getSubjectId())) return false; // another subject
+        if (priority != null && task.getPriority() != priority) return false;        // another priority
         if (!text.isEmpty()) {
-            String wanted = text.toLowerCase(Locale.ROOT); // ROOT = mismo resultado en cualquier PC
-            String subject = subjectNames.getOrDefault(task.getSubjectId(), "");
-            // Busca el texto en título, notas o nombre de asignatura (sin mayúsculas)
+            String wanted = text.toLowerCase(Locale.ROOT); // ROOT = same result on every computer and language
+            String subject = subjectNames.getOrDefault(task.getSubjectId(), ""); // name of the task's subject
+            // Look for the text in the title, the notes or the subject name (ignoring upper/lower case)
             boolean found = task.getTitle().toLowerCase(Locale.ROOT).contains(wanted)
                     || task.getNotes().toLowerCase(Locale.ROOT).contains(wanted)
                     || subject.toLowerCase(Locale.ROOT).contains(wanted);
             if (!found) return false;
         }
-        return true; // pasó todas las pruebas
+        return true; // it passed every test
     }
 
-    /** Mismo filtro pero con otro texto de búsqueda (lo usa la búsqueda rápida "/"). */
+    /** Same filter but with another search text (used by the quick search, the "/" key). */
     public TaskFilter withText(String newText) {
-        return new TaskFilter(newText, subjectId, priority, hideDone);
+        return new TaskFilter(newText, subjectId, priority, hideDone); // a new record, the old one is untouched
     }
 
-    /** Resumen legible para la pantalla, p. ej.: search "lab", subject Physics. */
+    /** Human readable summary for the screen, for example: search "lab", subject Physics. */
     public String describe(Map<Integer, String> subjectNames) {
-        List<String> parts = new ArrayList<>();
-        if (!text.isEmpty()) parts.add("search \"" + text + "\"");
+        List<String> parts = new ArrayList<>(); // one piece of text for each active condition
+        if (!text.isEmpty()) parts.add("search \"" + text + "\""); // \" is a quote character inside a String
         if (subjectId != null) parts.add("subject " + subjectNames.getOrDefault(subjectId, "?"));
         if (priority != null) parts.add("priority " + priority.getLabel());
         if (hideDone) parts.add("done tasks hidden");
-        return parts.isEmpty() ? "All tasks" : String.join(", ", parts); // une con ", "
+        return parts.isEmpty() ? "All tasks" : String.join(", ", parts); // join glues the parts with ", "
     }
 }

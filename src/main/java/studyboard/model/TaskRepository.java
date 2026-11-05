@@ -4,22 +4,28 @@ import java.time.*; // LocalDate
 import java.util.*; // List, ArrayList, Map, LinkedHashMap, Optional, Collections
 
 /**
- * Guarda TODAS las asignaturas y tareas EN MEMORIA y reparte ids únicos.
- * (Guardar en fichero lo hace FileStorage.) Sin código de pantalla.
+ * Holds ALL the subjects and tasks IN MEMORY and hands out unique ids.
+ * (Saving to a file is done by FileStorage.) No screen code here.
+ * The Controller is the only class that changes this object.
  */
 public class TaskRepository {
-    private final List<Subject> subjects = new ArrayList<>(); // lista de asignaturas
-    private final List<Task> tasks = new ArrayList<>();       // lista de tareas
-    private int nextSubjectId = 1; // el siguiente id libre de asignatura
-    private int nextTaskId = 1;    // el siguiente id libre de tarea
+    private final List<Subject> subjects = new ArrayList<>(); // list of subjects
+    private final List<Task> tasks = new ArrayList<>();       // list of tasks
+    private int nextSubjectId = 1; // the next free subject id (ids start at 1 and only grow)
+    private int nextTaskId = 1;    // the next free task id
 
-    // ------------------------------------------------------------------ leer
+    // ------------------------------------------------------------------ read
 
-    /** Vistas de solo lectura: quien las recibe no puede añadir ni borrar por error. */
+    /** Read-only views: whoever receives them cannot add or remove items by mistake. */
     public List<Subject> getSubjects() { return Collections.unmodifiableList(subjects); }
     public List<Task> getTasks() { return Collections.unmodifiableList(tasks); }
 
-    /** Optional = "quizá no existe". Obliga a quien llama a comprobarlo. */
+    /**
+     * Optional = "maybe there is no such task". It forces the caller to handle that case,
+     * which is safer than returning null and forgetting to check it.
+     * The stream goes through the list, filter keeps only the task with that id
+     * and findFirst takes the first one (there is at most one, because ids are unique).
+     */
     public Optional<Task> findTask(int id) {
         return tasks.stream().filter(t -> t.getId() == id).findFirst();
     }
@@ -28,44 +34,44 @@ public class TaskRepository {
         return subjects.stream().filter(s -> s.getId() == id).findFirst();
     }
 
-    /** Mapa idAsignatura -> nombre (cómodo para dibujar las tareas). */
+    /** Map subjectId -> subject name, handy to display the tasks (a Task only stores the subject id). */
     public Map<Integer, String> getSubjectNames() {
-        Map<Integer, String> names = new LinkedHashMap<>(); // LinkedHashMap mantiene el orden de inserción
+        Map<Integer, String> names = new LinkedHashMap<>(); // LinkedHashMap keeps the insertion order
         for (Subject s : subjects) {
             names.put(s.getId(), s.getName());
         }
         return names;
     }
 
-    /** Mapa idAsignatura -> número de tareas de esa asignatura. */
+    /** Map subjectId -> number of tasks of that subject (subjects with 0 tasks do not appear). */
     public Map<Integer, Integer> getTaskCounts() {
         Map<Integer, Integer> counts = new LinkedHashMap<>();
         for (Task t : tasks) {
-            counts.merge(t.getSubjectId(), 1, Integer::sum); // suma 1, o empieza en 1
+            counts.merge(t.getSubjectId(), 1, Integer::sum); // add 1 to the old value, or start at 1
         }
         return counts;
     }
 
-    // ------------------------------------------------------------------ tareas
+    // ------------------------------------------------------------------ tasks
 
-    /** Crea una tarea con datos sueltos (la usa SampleData). */
+    /** Creates a task from separate values (SampleData uses it). */
     public Task addTask(String title, int subjectId, Priority priority,
                         LocalDate deadline, double estimatedHours) {
         Task task = new Task(nextTaskId, title, subjectId, priority, deadline, estimatedHours);
-        nextTaskId++;   // solo se llega aquí si la creación no lanzó error
+        nextTaskId++;   // we only get here if the creation did not throw an error
         tasks.add(task);
         return task;
     }
 
-    /** Crea una tarea desde el formulario (empieza en "To do"). */
+    /** Creates a task from the form data (it starts in "To do"). Same method name, different parameters = overloading. */
     public Task addTask(TaskData data) {
         Task task = addTask(data.title(), data.subjectId(), data.priority(),
                 data.deadline(), data.estimatedHours());
-        task.setNotes(data.notes());
+        task.setNotes(data.notes()); // the first addTask has no notes parameter, so we set them here
         return task;
     }
 
-    /** Sobrescribe los campos editables de una tarea existente. */
+    /** Overwrites the editable fields of an existing task (id and status stay the same). */
     public void updateTask(Task task, TaskData data) {
         task.setTitle(data.title());
         task.setNotes(data.notes());
@@ -75,41 +81,41 @@ public class TaskRepository {
         task.setEstimatedHours(data.estimatedHours());
     }
 
-    /** Borra una tarea. Devuelve false si no había ninguna con ese id. */
+    /** Removes a task. Returns false if there was no task with that id (removeIf returns true if it removed something). */
     public boolean deleteTask(int id) {
         return tasks.removeIf(t -> t.getId() == id);
     }
 
-    // ------------------------------------------------------------------ asignaturas
+    // ------------------------------------------------------------------ subjects
 
     public Subject addSubject(String name) {
-        checkNameFree(name, -1); // los ids empiezan en 1, así que -1 significa "nadie"
-        Subject subject = new Subject(nextSubjectId, name); // lanza error si el nombre es malo
+        checkNameFree(name, -1); // ids start at 1, so -1 means "nobody" (no subject is excluded from the check)
+        Subject subject = new Subject(nextSubjectId, name); // throws an error if the name is empty or too long
         nextSubjectId++;
         subjects.add(subject);
         return subject;
     }
 
-    /** Cambia el nombre (mismas reglas que al crear). */
+    /** Changes the name (same rules as when creating one). */
     public void renameSubject(Subject subject, String newName) {
-        checkNameFree(newName, subject.getId()); // la propia asignatura puede conservar su nombre
+        checkNameFree(newName, subject.getId()); // the subject itself may keep its own name
         subject.setName(newName);
     }
 
     /**
-     * Borra la asignatura Y sus tareas (una tarea sin asignatura sería inválida).
-     * Devuelve cuántas tareas se borraron para avisar al usuario.
+     * Deletes the subject AND all its tasks (a task without a subject would be invalid).
+     * Returns how many tasks were deleted, so the screen can tell the user.
      */
     public int deleteSubject(int id) {
-        int before = tasks.size();
-        tasks.removeIf(t -> t.getSubjectId() == id);
-        subjects.removeIf(s -> s.getId() == id);
-        return before - tasks.size();
+        int before = tasks.size();                     // how many tasks there are now
+        tasks.removeIf(t -> t.getSubjectId() == id);   // remove the tasks of this subject
+        subjects.removeIf(s -> s.getId() == id);       // remove the subject itself
+        return before - tasks.size();                  // difference = tasks that disappeared
     }
 
-    /** Rechaza un nombre ya usado por OTRA asignatura (sin distinguir mayúsculas). */
+    /** Rejects a name already used by ANOTHER subject (ignoring upper/lower case). */
     private void checkNameFree(String name, int exceptId) {
-        if (name == null) return; // ese caso ya lo avisa la clase Subject
+        if (name == null) return; // the Subject class reports this case
         String wanted = name.trim();
         for (Subject s : subjects) {
             if (s.getId() != exceptId && s.getName().equalsIgnoreCase(wanted)) {
@@ -118,36 +124,37 @@ public class TaskRepository {
         }
     }
 
-    // ------------------------------------------------------------------ copias (para Undo)
+    // ------------------------------------------------------------------ copies (for Undo)
 
-    /** Copia PROFUNDA: tareas y asignaturas nuevas, no las mismas. Sirve de "foto" del estado. */
+    /** DEEP copy: new tasks and new subjects, not the same objects. It is a "photo" of the current state. */
     public TaskRepository copy() {
-        TaskRepository c = new TaskRepository(); // repositorio vacío
-        c.restoreFrom(this);                     // lo rellenamos con copias de lo nuestro
+        TaskRepository c = new TaskRepository(); // empty repository
+        c.restoreFrom(this);                     // we fill it with copies of our own data
         return c;
     }
 
-    /** Sustituye TODO el contenido por una copia del de 'other' (así se deshace un cambio). */
+    /** Replaces ALL the content with a copy of the content of 'other' (this is how a change is undone). */
     public void restoreFrom(TaskRepository other) {
-        clear();
-        for (Subject s : other.subjects) {
+        clear(); // start from zero
+        for (Subject s : other.subjects) { // a class can read the private fields of another object of the same class
             restoreSubject(s.getId(), s.getName());
         }
         for (Task t : other.tasks) {
-            // Creamos una tarea NUEVA igual que la original (si no, compartiríamos el mismo objeto)
+            // We create a NEW task equal to the original (if not, both repositories would share the same object
+            // and changing one would change the other)
             Task copy = new Task(t.getId(), t.getTitle(), t.getSubjectId(), t.getPriority(),
                     t.getDeadline(), t.getEstimatedHours());
             copy.setNotes(t.getNotes());
             copy.setStatus(t.getStatus());
             restoreTask(copy);
         }
-        nextSubjectId = other.nextSubjectId; // los ids siguen donde iban
+        nextSubjectId = other.nextSubjectId; // the ids continue where they were
         nextTaskId = other.nextTaskId;
     }
 
-    // ------------------------------------------------------------------ apoyo para cargar fichero
+    // ------------------------------------------------------------------ support for loading a file
 
-    /** Vacía todo (si el fichero cargado resulta inválido). */
+    /** Empties everything (also used if a loaded file turns out to be invalid). */
     public void clear() {
         subjects.clear();
         tasks.clear();
@@ -155,21 +162,21 @@ public class TaskRepository {
         nextTaskId = 1;
     }
 
-    /** Añade una asignatura que YA tiene id (al leer el fichero). */
+    /** Adds a subject that ALREADY has an id (used when reading the file and when copying). */
     public void restoreSubject(int id, String name) {
-        if (subjects.stream().anyMatch(s -> s.getId() == id)) {
+        if (subjects.stream().anyMatch(s -> s.getId() == id)) { // anyMatch = "is there at least one?"
             throw new IllegalArgumentException("duplicate subject id " + id);
         }
         subjects.add(new Subject(id, name));
-        nextSubjectId = Math.max(nextSubjectId, id + 1); // los ids nuevos no chocan con los cargados
+        nextSubjectId = Math.max(nextSubjectId, id + 1); // new ids must not collide with the loaded ones
     }
 
-    /** Añade una tarea que YA tiene id (al leer el fichero). */
+    /** Adds a task that ALREADY has an id (used when reading the file and when copying). */
     public void restoreTask(Task task) {
         if (tasks.stream().anyMatch(t -> t.getId() == task.getId())) {
             throw new IllegalArgumentException("duplicate task id " + task.getId());
         }
-        if (subjects.stream().noneMatch(s -> s.getId() == task.getSubjectId())) {
+        if (subjects.stream().noneMatch(s -> s.getId() == task.getSubjectId())) { // noneMatch = "there is no subject like that"
             throw new IllegalArgumentException("task refers to an unknown subject " + task.getSubjectId());
         }
         tasks.add(task);

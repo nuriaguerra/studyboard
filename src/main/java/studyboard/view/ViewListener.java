@@ -3,27 +3,28 @@ package studyboard.view;
 import studyboard.model.*;
 
 /**
- * Eventos que la View manda al Controller: "el usuario quiere X".
- * (La View NUNCA toca los datos: solo avisa por aquí.)
- * onAddSubject y onRenameSubject lanzan IllegalArgumentException con un mensaje
- * para el usuario si el nombre no vale; la View muestra ese mensaje.
+ * Events that the View sends to the Controller: "the user wants X".
+ * (The View NEVER touches the data: it only reports here.)
+ * The Controller implements this interface; the View keeps a reference to it (the "listener").
+ * onAddSubject and onRenameSubject throw IllegalArgumentException with a message
+ * for the user if the name is not valid; the View shows that message.
  */
 public interface ViewListener {
-    void onMoveTask(int taskId, Status newStatus);   // mover tarea de columna
-    void onAddTask(TaskData data);                   // crear tarea
-    void onEditTask(int taskId, TaskData data);      // editar tarea
-    void onDeleteTask(int taskId);                   // borrar tarea
+    void onMoveTask(int taskId, Status newStatus);   // move a task to another column
+    void onAddTask(TaskData data);                   // create a task
+    void onEditTask(int taskId, TaskData data);      // edit a task
+    void onDeleteTask(int taskId);                   // delete a task
 
-    void onShowToday();                              // abrir pantalla Today
-    void onShowSubjects();                           // abrir pantalla de asignaturas
-    void onAddSubject(String name);                  // crear asignatura
-    void onRenameSubject(int subjectId, String newName); // renombrar asignatura
-    void onDeleteSubject(int subjectId);             // borrar asignatura
+    void onShowToday();                              // open the Today screen
+    void onShowSubjects();                           // open the Subjects screen
+    void onAddSubject(String name);                  // create a subject
+    void onRenameSubject(int subjectId, String newName); // rename a subject
+    void onDeleteSubject(int subjectId);             // delete a subject
 
-    void onUndo();                                   // deshacer el último cambio de datos
+    void onUndo();                                   // undo the last change of data
 
-    /** El usuario cambió lo que muestra el tablero (TaskFilter.NONE = mostrar todo). */
+    /** The user changed what the board shows (TaskFilter.NONE = show everything). */
     void onChangeView(TaskFilter filter, SortOrder sort);
 
-        void onShowCalendar();   // abrir el calendario
+    void onShowCalendar();   // open the calendar
 }

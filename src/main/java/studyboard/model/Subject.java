@@ -1,29 +1,31 @@
 package studyboard.model;
 
-/** Una asignatura, por ejemplo "HCI" o "Math". Solo datos + validación, nada de pantalla. */
+/** A course, for example "HCI" or "Math". Only data + validation, nothing about the screen. */
 public class Subject {
-    private final int id;   // identificador único; final = no cambia tras crearse
-    private String name;    // nombre (sí se puede renombrar)
+    private final int id;   // unique identifier; final = it cannot change after the object is created
+    private String name;    // name (this one can change, because a subject can be renamed)
 
-    public Subject(int id, String name) {
+    public Subject(int id, String name) { // constructor: runs when we write new Subject(...)
         this.id = id;
-        setName(name); // reutilizamos el setter para que la validación esté en UN solo sitio
+        setName(name); // we reuse the setter, so the validation rules live in ONE single place
     }
 
+    // Getters: other classes can read the data but cannot touch the fields directly
     public int getId() { return id; }
     public String getName() { return name; }
 
-    /** Cambia el nombre, rechazando nombres vacíos o demasiado largos. */
+    /** Changes the name, rejecting names that are empty or too long. */
     public void setName(String name) {
-        if (name == null || name.isBlank()) { // isBlank = vacío o solo espacios
+        if (name == null || name.isBlank()) { // isBlank = empty or only spaces
+            // throw = stop here and report an error. The View catches it and shows the message.
             throw new IllegalArgumentException("Subject name cannot be empty.");
         }
-        if (name.trim().length() > 30) {
+        if (name.trim().length() > 30) { // trim() removes spaces at the start and the end
             throw new IllegalArgumentException("Subject name is too long (maximum 30 characters).");
         }
-        this.name = name.trim(); // trim quita espacios al principio y al final
+        this.name = name.trim(); // we store the clean version (without the extra spaces)
     }
 
-    @Override // sobrescribe el método de Java que convierte el objeto en texto
-    public String toString() { return name; }
+    @Override // replaces the toString() that every Java object already has
+    public String toString() { return name; } // so printing a Subject shows its name
 }
