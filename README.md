@@ -15,12 +15,6 @@ I have a few courses running at the same time, and the hard part is never writin
 - **Context help** on every screen (`H` or `F1`).
 - **Automatic saving.** There is no save button. Every change is written to disk.
 
-## Requirements
-
-- Java 21 or newer
-- Maven (only if you want to build it yourself)
-- A terminal that supports colours and is at least about 80x24 characters
-
 ## Build and run
 
 ```bash
@@ -123,11 +117,10 @@ Everything is saved in a plain text file at `~/.studyboard/data.txt`. If you del
 ## Limitations and ideas for later
 
 - Deleting a subject deletes its tasks too (you can undo it). Archiving subjects would be a gentler option.
-- There is no high contrast theme yet.
 - I would like to add a focus timer and a weekly workload view.
 - Project 2 will reuse the model and the controller with a graphical view.
 
 ## Author
 
-[Your name], [your study group / student ID]
-Human-Computer Interaction, [semester / year]
+Nuria Guerra Casal, 97559@student.pb.edu.pl
+Human-Computer Interaction, first semester 2026/2027
