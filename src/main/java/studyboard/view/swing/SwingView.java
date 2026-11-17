@@ -6,7 +6,6 @@ import java.awt.*;                         // BorderLayout, GridLayout, Font, Di
 import java.awt.datatransfer.*;            // StringSelection, Transferable, DataFlavor (used by drag and drop)
 import java.awt.event.*;                   // MouseAdapter, MouseEvent
 import java.time.*;                        // LocalDate
-import java.time.format.*;                 // DateTimeFormatter
 import java.util.*;                        // Map, ArrayList
 import java.util.List;                     // java.awt and java.util BOTH have a "List": we mean java.util's
 import javax.swing.*;                      // JFrame, JPanel, JList, JButton, JLabel...
