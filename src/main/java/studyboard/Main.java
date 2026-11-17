@@ -2,7 +2,7 @@ package studyboard;
 
 import com.formdev.flatlaf.FlatLightLaf;  // modern look for Swing windows
 import javax.swing.SwingUtilities;        // lets us run code on the Swing thread
-import javax.swing.UIManager;git status  q
+import javax.swing.UIManager;
 
 import studyboard.controller.*;
 import studyboard.model.*;
