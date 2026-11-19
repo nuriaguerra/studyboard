@@ -22,7 +22,6 @@ Both use the **same Model and Controller**. Only the View layer was replaced.
 - Automatic saving to `~/.studyboard/data.txt` (no save button)
 
 ## Build and run
-Requires Java 21 and Maven.
 
 ```bash
 mvn clean package -DskipTests
