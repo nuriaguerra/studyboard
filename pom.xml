@@ -40,7 +40,7 @@
     <!-- FlatLaf: modern look and feel for Java Swing applications. -->
     <dependency>
       <groupId>com.formdev</groupId>
-      <artifactId>flatlaf</artifactId>
+      <artifactId>flatlaf</artifactId> <!-- FlatLaf: modern look and feel for Java Swing applications. -->
       <version>3.5.4</version>
     </dependency>
         <!-- JUnit 5: testing framework. scope=test means it is NOT packed into the final jar. -->
