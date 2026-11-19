@@ -1,6 +1,8 @@
 package studyboard.view.swing;
 
-/** The help texts, one per window ("contextual help"). Text blocks keep the line breaks. */
+//The HelpTexts class contains the help text for each window, to be shown when the user presses F1. 
+//It is a final class with a private constructor, so it cannot be instantiated or subclassed.
+// All its fields are static final strings, so they can be accessed without creating an instance of the class.
 final class HelpTexts {
     private HelpTexts() { }
 
