@@ -47,25 +47,25 @@ final class Ui {
 
     /** Adds "label | field" as one row of a GridBagLayout form. */
     static void addRow(JPanel panel, int row, String label, Component field) {
-        GridBagConstraints c = new GridBagConstraints();
+        GridBagConstraints c = new GridBagConstraints(); // each row has its own constraints, so we create a new one for each row
         c.gridy = row;
-        c.insets = new Insets(4, 4, 4, 4);   // space around each component
-        c.anchor = GridBagConstraints.WEST;  // left aligned
-        c.gridx = 0;
+        c.insets = new Insets(4, 4, 4, 4); //space around each component
+        c.anchor = GridBagConstraints.WEST; //left aligned
+        c.gridx = 0; // the label is in the first column
         panel.add(new JLabel(label), c);
-        c.gridx = 1;
-        c.fill = GridBagConstraints.HORIZONTAL; // the field grows to the right
-        c.weightx = 1;
+        c.gridx = 1; // the field is in the second column
+        c.fill = GridBagConstraints.HORIZONTAL; //the field grows to the right
+        c.weightx = 1; //the field takes all the extra horizontal space, so the label stays the same size
         panel.add(field, c);
     }
 
     /** Registers a keyboard shortcut for a whole window. keyStroke examples: "ctrl N", "F1", "ESCAPE", "DELETE". */
     static void bindKey(JRootPane root, String keyStroke, Runnable action) {
-        String id = "action-" + keyStroke; // any unique name works
-        root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(keyStroke), id); // key -> name
-        root.getActionMap().put(id, new AbstractAction() {                                              // name -> code
+        String id = "action-" + keyStroke; //any unique name works
+        root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(keyStroke), id); //when the window is focused, pressing the keyStroke will trigger the action with the given id
+        root.getActionMap().put(id, new AbstractAction() {  //getActionMap() returns a map of actions, which are triggered by the input map. 
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e) {  //when the keyStroke is pressed, this method is called
                 action.run();
             }
         });
@@ -73,32 +73,33 @@ final class Ui {
 
     /** Esc closes the dialog (same behaviour in every window). */
     static void closeOnEsc(JDialog dialog) {
-        bindKey(dialog.getRootPane(), "ESCAPE", dialog::dispose);
+        bindKey(dialog.getRootPane(), "ESCAPE", dialog::dispose); // pressing Esc will call the dispose() method of the dialog, which closes it
     }
 
     /** F1 opens the help of this window. */
     static void helpOnF1(JRootPane root, Component parent, String title, String text) {
-        bindKey(root, "F1", () -> showText(parent, title, text));
+        bindKey(root, "F1", () -> showText(parent, title, text)); // pressing F1 will call the showText() method, which shows a dialog with the help text
     }
 
-    /** Read-only text in a small window (help, task details). Monospaced font keeps the columns aligned. */
+    /** Read-only text in a small window (help, task details).*/
     static void showText(Component parent, String title, String text) {
         JTextArea area = new JTextArea(text);
-        area.setEditable(false);
+        area.setEditable(false); // the user cannot change the text
         area.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
-        area.setOpaque(false);
+        area.setOpaque(false); // the background is transparent, so the dialog looks like a normal message dialog
         JOptionPane.showMessageDialog(parent, area, title, JOptionPane.PLAIN_MESSAGE);
     }
 
+    /** Shows an error message in a dialog. */
     static void error(Component parent, String title, String message) {
         JOptionPane.showMessageDialog(parent, message, title, JOptionPane.WARNING_MESSAGE);
     }
 
-    /** Yes/No question (error prevention). "No" is the first button and the default one: Enter alone does NOT confirm. */
+    /** Yes/No question (error prevention). "No" is the first button and the default one */
     static boolean confirm(Component parent, String title, String message) {
         Object[] options = {"No", "Yes"};
-        int answer = JOptionPane.showOptionDialog(parent, message, title, JOptionPane.DEFAULT_OPTION,
-                JOptionPane.WARNING_MESSAGE, null, options, options[0]); // options[0] = initial (focused) button
+        int answer = JOptionPane.showOptionDialog(parent, message, title, JOptionPane.DEFAULT_OPTION, //the user cannot close the dialog by clicking outside it, so they must choose one of the buttons
+                JOptionPane.WARNING_MESSAGE, null, options, options[0]);
         return answer == 1; // 1 = "Yes"; closing the window gives -1 = no
     }
 }
